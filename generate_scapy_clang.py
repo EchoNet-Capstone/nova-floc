@@ -91,8 +91,12 @@ def generate_scapy_class(cursor: Cursor, all_structs: dict) -> tuple[str, str] |
                 enum_dict = {}
                 for enum_child in field_type.get_declaration().get_children():
                     if enum_child.kind == CursorKind.ENUM_CONSTANT_DECL:
-                        enum_dict[enum_child.enum_value] = enum_child.spelling.encode()
-                fields.append(f"ByteEnumField('{field_name}', 0, {enum_dict})")
+                        enum_dict[enum_child.enum_value] = enum_child.spelling
+                # Special Case for the FlocPacketType enum inside of the Common Header.
+                if class_name == "FlocHeader" and field_name == "type":
+                    fields.append(f"BitEnumField('{field_name}', 0, 4, {enum_dict})")
+                else:
+                    fields.append(f"ByteEnumField('{field_name}', 0, {enum_dict})")
             elif bit_width is not None:
                 fields.append(f"BitField('{field_name}', 0, {bit_width})")
             else:
@@ -170,7 +174,7 @@ def generate_enum_constants_and_functions(tu: clang.cindex.TranslationUnit, all_
                 if enum_const.kind == CursorKind.ENUM_CONSTANT_DECL:
                     const_name = enum_const.spelling
                     const_value = enum_const.enum_value
-                    constants.append(f"{const_name} = b'{const_name}'")  # Define as bytes
+                    constants.append(f"{const_name} = '{const_name}'")  # Define as bytes
                     mapping[const_value] = const_name
 
             enum_mappings[func_name_base] = mapping  # Store for function generation
@@ -181,13 +185,13 @@ def generate_enum_constants_and_functions(tu: clang.cindex.TranslationUnit, all_
     # Generate conversion functions
     for func_name_base, mapping in enum_mappings.items():
         func_name = f"get_{func_name_base}"
-        code += f"def {func_name}(value: int) -> bytes:\n"
-        code += f'    """Converts an integer value to the {func_name_base} enum\'s byte string representation."""\n'
+        code += f"def {func_name}(value: int) -> str:\n"
+        code += f'    """Converts an integer value to the {func_name_base} enum\'s string representation."""\n'
         code += f"    _mapping = {{\n"
         for num_val, byte_val in mapping.items():
             code += f"        {num_val}: {byte_val},\n"
         code += f"    }}\n"
-        code += f"    return _mapping.get(value, b'')\n\n"  # Return empty bytes if not found
+        code += f"    return _mapping.get(value, '')\n\n"  # Return empty str if not found
 
     return code
 
@@ -277,7 +281,7 @@ def main():
 #   - Import this module to access the generated Scapy classes.
 #   - Use these classes to build, send, and dissect FLOC packets.
 #
-from scapy.all import Packet, BitField, ShortField, ByteField, IntField, StrFixedLenField, PacketField, bind_layers, ByteEnumField, ConditionalField, RawVal
+from scapy.all import Packet, BitField, ShortField, ByteField, IntField, StrFixedLenField, PacketField, bind_layers, ByteEnumField, BitEnumField, ConditionalField, RawVal
 
 {enum_constants_and_functions}
 

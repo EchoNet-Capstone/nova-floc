@@ -46,7 +46,7 @@ enum SerialFlocPacketType_e {
 // --- FLOC Packet Structures ---
 
 // 1. Common Header
-struct HeaderCommon_t {
+struct FlocHeader_t {
     uint8_t ttl : FLOC_TTL_SIZE;
     FlocPacketType_e type : FLOC_TYPE_SIZE;
     uint16_t nid;
@@ -79,7 +79,7 @@ struct ResponseHeader_t {
 // This is the key improvement:  We calculate the maximum data sizes
 // *statically*, based on FLOC_MAX_SIZE and the sizes of the headers.
 
-#define FLOC_HEADER_COMMON_SIZE (sizeof(HeaderCommon_t))
+#define FLOC_HEADER_COMMON_SIZE (sizeof(FlocHeader_t))
 
 #define DATA_HEADER_SIZE        (sizeof(DataHeader_t))
 #define COMMAND_HEADER_SIZE     (sizeof(CommandHeader_t))
@@ -121,7 +121,7 @@ union FlocPacketVariant_u {
 };
 
 struct FlocPacket_t {
-    HeaderCommon_t header;
+    FlocHeader_t header;
     FlocPacketVariant_u payload;
 } __attribute__((packed));
 
