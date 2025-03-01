@@ -21,6 +21,9 @@
 #define FLOC_PID_SIZE 6
 #define FLOC_ADDR_SIZE 16
 
+#define COMMAND_TYPE_SIZE 8
+
+#define SERIAL_FLOC_TYPE_SIZE 8
 // --- Packet Type Enums ---
 
 // The 4 types of floc packets
@@ -62,7 +65,7 @@ struct DataHeader_t {
 } __attribute__((packed));
 
 struct CommandHeader_t {
-    CommandType_e command_type;
+    CommandType_e command_type: COMMAND_TYPE_SIZE;
     uint8_t size;  // Size of the command data
 } __attribute__((packed));
 
@@ -127,7 +130,7 @@ struct FlocPacket_t {
 
 // --- Serial FLOC Packet Structures ---
 struct SerialFlocHeader_t {
-    SerialFlocPacketType_e type;
+    SerialFlocPacketType_e type: SERIAL_FLOC_TYPE_SIZE;
     uint8_t                size;
 } __attribute__((packed));
 
