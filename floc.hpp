@@ -125,6 +125,35 @@ typedef union {
     uint8_t raw[64];
 } FlocPacket_u;
 
+// --- SerialFlocPacket Types (for the outer packet) ---
+enum SerialFlocPacketType_e{
+    SERIAL_BROADCAST_TYPE = 0x01,  // Encapsulates a FLOC packet
+    SERIAL_UNICAST_TYPE   = 0X02,
+    // Add other SerialFlocPacket types if needed (e.g., for control)
+};
+
+// --- Outer Packet for Serial Communication (SerialFlocPacket) ---
+struct SerialFlocHeader_t {
+    SerialFlocPacketType_e type;  // Type of SerialFlocPacket (e.g., data, control)
+    uint8_t                size;  // Total size of the SerialFlocPacket (including type, size, and data)
+} __attribute__((packed));
+
+struct SerialBroadcastHeader_t {
+    SerialFlocHeader_t common;
+} __attribute__((packed));
+
+struct SerialUnicastHeader_t {
+    SerialFlocHeader_t common;
+    uint16_t dest_addr;
+} __attribute__((packed));
+
+typedef union {
+    SerialFlocHeader_t common;
+    SerialBroadcastHeader_t broadcast;
+    SerialUnicastHdeader_t unicast;
+    uint8_t raw[66];
+} SerialFlocPacket_u;
+
 void parse_floc_command_packet(char *broadcastBuffer, uint8_t size);
 void parse_floc_acknowledgement_packet(char *broadcastBuffer);
 void parse_floc_response_packet(char *broadcastBuffer);

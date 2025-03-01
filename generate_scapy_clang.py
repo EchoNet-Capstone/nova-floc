@@ -1,6 +1,6 @@
 import sys
 import clang.cindex
-from clang.cindex import CursorKind, TypeKind, Config
+from clang.cindex import CursorKind, TypeKind, Config, Cursor, Type
 
 FLOC_HPP = sys.argv[1]
 FLOC_PY = sys.argv[2]
@@ -29,7 +29,7 @@ def get_scapy_field_type(clang_type):
 	else:
 		raise ValueError(f"Unsupported Clang type: {clang_type.spelling}")
 
-def generate_scapy_class(cursor):
+def generate_scapy_class(cursor: Cursor):
 	"""Generates Scapy class definition."""
 	if cursor.spelling == "":
 		return None, None
@@ -38,10 +38,11 @@ def generate_scapy_class(cursor):
 	fields = []
 	base_class = "Packet"
 
-	if cursor.spelling == "HeaderCommon_t":
-		pass
-	elif any(c.spelling == 'common' for c in cursor.get_children()):
-		base_class = "HeaderCommon"
+	if not cursor.spelling == "HeaderCommon_t":
+		for c in cursor.get_children():
+			c: Cursor
+			if c.spelling == "common":
+				base_class = c.type.spelling.replace("_t", "")
 
 	for child in cursor.get_children():
 		if child.kind == CursorKind.FIELD_DECL:
@@ -94,7 +95,7 @@ class {class_name}({base_class}):
 """
 	return scapy_class, class_name
 
-def generate_bind_layers_for_enum(header_cursor, discriminator_field_name, header_name, all_structs, prefix, remove_str):
+def generate_bind_layers_for_enum(header_cursor, discriminator_field_name, header_name, all_structs, prefix, remove_str, prefix_repl=""):
 	"""Generates bind_layers calls for a given header and discriminator field."""
 
 	bind_layers_code = ""
@@ -114,7 +115,7 @@ def generate_bind_layers_for_enum(header_cursor, discriminator_field_name, heade
 		if enum_const.kind == CursorKind.ENUM_CONSTANT_DECL:
 			enum_name = enum_const.spelling
 			enum_value = enum_const.enum_value
-			struct_name = enum_name.replace(prefix, "").replace(remove_str, "").capitalize() + "Header_t"
+			struct_name = prefix_repl + enum_name.replace(prefix, "").replace(remove_str, "").capitalize() + "Header_t"
 			if struct_name in all_structs:
 				class_name = struct_name.replace("_t", "")
 				bind_layers_code += f"bind_layers({header_name}, {class_name}, {discriminator_field_name}={enum_value})\n"
@@ -129,7 +130,7 @@ def generate_bind_layers(all_structs):
 		all_structs.get("HeaderCommon_t"), "type", "HeaderCommon", all_structs, "FLOC_", "_TYPE"
 	)
 	bind_layers_code += generate_bind_layers_for_enum(
-		all_structs.get("CommandHeader_t"), "command_id", "CommandHeader", all_structs, "FLOC_CMD_", ""
+		all_structs.get("SerialFlocHeader_t"), "type", "SerialFlocHeader", all_structs, "SERIAL_", "_TYPE", "Serial"
 	)
 	# Add more calls to generate_bind_layers_for_enum as needed for other headers
 
