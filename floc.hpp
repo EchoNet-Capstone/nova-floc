@@ -17,10 +17,10 @@
  *    - Use a consistent naming convention: `FLOC_<PACKET_NAME>_TYPE`.
  *    - Example:
  *      ```c++
- *      typedef enum {
+ *      enum FlocPacketType_e{
  *          FLOC_COMMAND_TYPE = 0x1,
  *          FLOC_ACK_TYPE = 0x2,
- *      } FlocPacketType_e;
+ *      };
  *      ```
  *
  * 4. HeaderCommon_t:
@@ -39,9 +39,9 @@
  *    - Add a new section to the generator script's `generate_bind_layers` function.
  *    - Example:
  *      ```c++
- *      typedef enum {
+ *      enum FlocCommandID_e {
  *          FLOC_CMD_SET_LED = 0x01,
- *      } FlocCommandID_e;
+ *      } ;
  *
  *      struct CommandHeader_t {
  *          HeaderCommon_t common;
