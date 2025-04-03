@@ -3,12 +3,10 @@
 
 #include <stdint.h>
 #include <globals.hpp>
-
-#ifdef ON_DEVICE
+#include <device_actions.hpp>
 #include <nmv3_api.hpp>
 #include <Arduino.h>
 #include <motor.hpp>
-#endif // ON_DEVICE
 
 // -- Defaults ---
 #define TTL_START 3
@@ -160,17 +158,22 @@ typedef struct SerialFlocPacket_t {
 };
 #pragma pack(pop)
 
-#ifdef ON_DEVICE
 uint16_t get_network_id();
 uint8_t use_packet_id();
-void parse_floc_command_packet(FlocHeader_t* floc_header, CommandPacket_t* pkt, uint8_t size) ;
-void parse_floc_acknowledgement_packet(uint8_t* broadcastBuffer, uint8_t size);
-void parse_floc_response_packet(uint8_t* broadcastBuffer, uint8_t size);
-void floc_broadcast_received(uint8_t* broadcastBuffer, uint8_t size);
-void floc_unicast_received(uint8_t* unicastBuffer, uint8_t size);
-void floc_acknowledgement_send(uint8_t ttl, uint8_t ack_pid, uint16_t dest_addr, uint16_t src_addr);
-void floc_status_queue(HardwareSerial connection, uint8_t dest_addr);
+uint16_t get_device_id();
+
+void floc_status_query(uint8_t dest_addr);
+
+void floc_acknowledgement_send(uint8_t ttl, uint8_t ack_pid, uint16_t dest_addr);
 void floc_status_send(QueryStatusResponseFullPacket_t* statusResponse);
-#endif // ON_DEVICE
+
+void parse_floc_command_packet(FlocHeader_t* floc_header, CommandPacket_t* pkt, uint8_t size, DeviceAction_t* da) ;
+void parse_floc_acknowledgement_packet(FlocHeader_t* floc_header, AckPacket_t* pkt, uint8_t size, DeviceAction_t* da);
+void parse_floc_response_packet(FlocHeader_t* floc_header, ResponsePacket_t* pkt, uint8_t size, DeviceAction_t* da);
+
+void floc_broadcast_received(uint8_t* broadcastBuffer, uint8_t size, DeviceAction_t* da);
+void floc_unicast_received(uint8_t* unicastBuffer, uint8_t size, DeviceAction_t* da);
+
+void packet_received_nest(uint8_t* packetBuffer, uint8_t size, DeviceAction_t* da);
 
 #endif
