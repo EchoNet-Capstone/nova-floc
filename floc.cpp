@@ -285,8 +285,10 @@ void packet_received_nest(uint8_t* packetBuffer, uint8_t size, DeviceAction_t* d
                 break;
             default:
                 if (debug) {
-                    Serial.printf("Unhandled packet type [NeST] : prefix [%c]\r\n", packetBuffer[1]);
-                    Serial.printf("Full packet : %s\r\n", packetBuffer);
+                    Serial.printf("Unhandled packet type [NeST] : prefix [%c]\r\n", pkt_type);
+                    for(int i = 0; i < size; i++){
+                        
+                    }
                 }
         }
     } else {
