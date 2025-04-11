@@ -68,6 +68,8 @@ void floc_status_send(QueryStatusResponseFullPacket_t* statusResponse) {
 }
 
 void parse_floc_data_packet(FlocHeader_t* floc_header, DataPacket_t* pkt, uint8_t size, DeviceAction_t* da) {
+    if (debug) Serial.printf("Data packet received...\r\n");
+    
     if (size < sizeof(FlocHeader_t) + sizeof(DataHeader_t)) {
         if (debug) Serial.printf("Invalid Command Packet: Too small\r\n");
         return;
@@ -78,7 +80,7 @@ void parse_floc_data_packet(FlocHeader_t* floc_header, DataPacket_t* pkt, uint8_
     // Extract data size
     uint8_t dataSize = header->size;
 
-    if (size < sizeof(FlocHeader_t) + sizeof(DataHeader_t) + dataSize){
+    if (size < sizeof(DataHeader_t) + dataSize){
         if (debug) Serial.printf("Invalid Data Packet: Incomplete data\r\n");
         return;
     }
@@ -161,14 +163,24 @@ void parse_floc_acknowledgement_packet(FlocHeader_t* floc_header, AckPacket_t* p
     if (size < sizeof(AckHeader_t) + dataSize) {
         if (debug) Serial.printf("Invalid Ack Packet: Incomplete data\r\n");
     }
-#endif 
+
+    uint8_t* data = pkt->data;
+#endif // ACK_DATA
 
     // Setup DeviceAction
     da->flocType = FLOC_ACK_TYPE;
 
+#ifdef ACK_DATA // ACK_DATA
+    da->dataSize = dataSize;
+    da->data = data;
+#endif //ACK_DATA
+
     if (debug) {
         Serial.printf("ACK Packet Received:\r\n");
         Serial.printf("\tAcknowledged Packet ID: %d\r\n", ack_pid);
+    #ifdef ACK_DATA // ACK_DATA
+        printBufferContents(data, dataSize);
+    #endif
     }
 }
 
