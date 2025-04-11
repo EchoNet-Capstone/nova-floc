@@ -13,7 +13,6 @@
 
 // --- Configuration (Maximum Sizes) ---
 #define FLOC_MAX_SIZE 64  // Maximum size of a complete FLOC packet
-#define SERIAL_FLOC_MAX_SIZE 64 // Maximum size for a serial floc packet.
 
 // --- Macros for field sizes (optional, for documentation) ---
 #define FLOC_TTL_SIZE 4
@@ -73,6 +72,9 @@ typedef struct CommandHeader_t {
 
 typedef struct AckHeader_t {
     uint8_t ack_pid;
+#ifdef ACK_DATA // ACK_DATA
+    uint8_t size;
+#endif // ACK_DATA
 };
 
 typedef struct ResponseHeader_t {
@@ -94,8 +96,13 @@ typedef struct ResponseHeader_t {
 #define MAX_DATA_DATA_SIZE      (FLOC_MAX_SIZE - FLOC_HEADER_COMMON_SIZE - DATA_HEADER_SIZE)
 #define MAX_COMMAND_DATA_SIZE   (FLOC_MAX_SIZE - FLOC_HEADER_COMMON_SIZE - COMMAND_HEADER_SIZE)
 #define MAX_RESPONSE_DATA_SIZE  (FLOC_MAX_SIZE - FLOC_HEADER_COMMON_SIZE - RESPONSE_HEADER_SIZE)
-#define MAX_ACK_DATA_SIZE       (FLOC_MAX_SIZE - FLOC_HEADER_COMMON_SIZE - ACK_HEADER_SIZE)
 // Ack packets don't have a data field in this example, but you could define a MAX_ACK_DATA_SIZE if needed.
+#ifdef ACK_DATA // ACK_DATA
+#define MAX_ACK_DATA_SIZE       (FLOC_MAX_SIZE - FLOC_HEADER_COMMON_SIZE - ACK_HEADER_SIZE)
+#else
+#define MAX_ACK_DATA_SIZE       0
+#endif //ACK_DATA
+
 
 // --- Complete FLOC Packet Structures ---
 typedef struct DataPacket_t {
@@ -110,7 +117,10 @@ typedef struct CommandPacket_t {
 
 typedef struct AckPacket_t {
     AckHeader_t header;
-    // uint8_t data[MAX_ACK_DATA_SIZE]; // If you add data to acks
+    // If you add data to acks
+#ifdef ACK_DATA // ACK_DATA
+    uint8_t data[MAX_ACK_DATA_SIZE];
+#endif // ACK_DATA
 };
 
 typedef struct ResponsePacket_t {
@@ -146,17 +156,47 @@ typedef union SerialFlocPacketVariant_u {
 };
 
 // --- Serial FLOC Structures ---
+#define SERIAL_FLOC_NEST_TO_BURD_PRE    "$"
+#define SERIAL_FLOC_BURD_TO_NEST_PRE    "#"
+#define SERIAL_FLOC_PRE_SIZE            1
+
 // Define the header first.
 typedef struct SerialFlocHeader_t {
     SerialFlocPacketType_e type: SERIAL_FLOC_TYPE_SIZE;
     uint8_t                size;
 };
 
+#define SERIAL_FLOC_HEADER_SIZE     (sizeof(SerialFlocHeader_t))
+
 typedef struct SerialFlocPacket_t {
     SerialFlocHeader_t header;
     SerialFlocPacketVariant_u payload;
 };
+
 #pragma pack(pop)
+
+// --- Calculate Packet Sizes
+
+// Maximums
+#define FLOC_PACKET_MAX_SIZE                (sizeof(FlocPacket_t))
+#define DATA_PACKET_MAX_SIZE                (FLOC_HEADER_COMMON_SIZE + DATA_HEADER_SIZE + MAX_DATA_DATA_SIZE)
+#define COMMAND_PACKET_MAX_SIZE             (FLOC_HEADER_COMMON_SIZE + COMMAND_HEADER_SIZE + MAX_COMMAND_DATA_SIZE)
+#define RESPONSE_PACKET_MAX_SIZE            (FLOC_HEADER_COMMON_SIZE + RESPONSE_HEADER_SIZE + MAX_RESPONSE_DATA_SIZE)
+#define ACK_PACKET_MAX_SIZE                 (FLOC_HEADER_COMMON_SIZE + ACK_HEADER_SIZE + MAX_ACK_DATA_SIZE)
+
+#define SERIAL_FLOC_MAX_SIZE                (SERIAL_FLOC_PRE_SIZE + SERIAL_FLOC_HEADER_SIZE + FLOC_PACKET_MAX_SIZE) // Maximum size for a serial floc packet.
+
+// Actuals (with packet)
+#define DATA_PACKET_ACTUAL_SIZE(pkt)        (FLOC_HEADER_COMMON_SIZE + DATA_HEADER_SIZE + x->payload.data.header.size)
+#define COMMAND_PACKET_ACTUAL_SIZE(pkt)     (FLOC_HEADER_COMMON_SIZE + COMMAND_HEADER_SIZE + x->payload.command.header.size)
+#define RESPONSE_PACKET_ACTUAL_SIZE(pkt)    (FLOC_HEADER_COMMON_SIZE + RESPONSE_HEADER_SIZE + x->payload.response.header.size)
+#ifdef ACK_DATA // ACK_DATA
+#define ACK_PACKET_ACTUAL_SIZE(pkt)         (FLOC_HEADER_COMMON_SIZE + ACK_HEADER_SIZE + x->payload.ack.header.size)
+#else
+#define ACK_PACKET_ACTUAL_SIZE(pkt)         (FLOC_HEADER_COMMON_SIZE + ACK_HEADER_SIZE)
+#endif
+
+#define SERIAL_FLOC_ACTUAL_SIZE(pkt)        (SERIAL_FLOC_HEADER_SIZE + pkt->header.size)
 
 uint16_t get_network_id();
 uint8_t use_packet_id();

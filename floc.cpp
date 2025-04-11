@@ -37,7 +37,7 @@ void floc_acknowledgement_send(uint8_t ttl, uint8_t ack_pid, uint16_t dest_addr)
 
     packet.payload.ack.header.ack_pid = ack_pid;
 
-    broadcast(MODEM_SERIAL_CONNECTION, (char*)&packet, sizeof(FlocHeader_t) + sizeof(AckHeader_t));
+    broadcast(MODEM_SERIAL_CONNECTION, (char*)&packet, ACK_PACKET_ACTUAL_SIZE(&packet));
 }
 
 void floc_status_send(QueryStatusResponseFullPacket_t* statusResponse) {
@@ -285,15 +285,21 @@ void packet_received_nest(uint8_t* packetBuffer, uint8_t size, DeviceAction_t* d
                 break;
             default:
                 if (debug) {
-                    Serial.printf("Unhandled packet type [NeST] : prefix [%c]\r\n", pkt_type);
+                    Serial.printf("Unhandled serial broadcast packet type [NeST] : prefix [%c]\r\n", (char) pkt->header.type);
+                    Serial.printf("Full Packet: ");
+                    packetBuffer--;
                     for(int i = 0; i < size; i++){
-                        
+                        Serial.printf("%02X", packetBuffer[i]);
                     }
                 }
+                return;
         }
     } else {
-        // Packet does not follow nest prefix structure (starts with $)
-        // if (debug) print_packet(packetBuffer, "Unknown prefix [NeST packet]");
-        return;
+        Serial.printf("Unhandled packet type [NeST] : prefix [%c]\r\n", pkt_type);
+        Serial.printf("Full Packet: ");
+        packetBuffer--;
+        for(int i = 0; i < size; i++){
+            Serial.printf("%02X", packetBuffer[i]);
+        }
     }
 }
