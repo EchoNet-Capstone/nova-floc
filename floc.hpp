@@ -2,11 +2,9 @@
 #define FLOC_H
 
 #include <stdint.h>
-#include <globals.hpp>
+
 #include <device_actions.hpp>
 #include <nmv3_api.hpp>
-#include <Arduino.h>
-#include <motor.hpp>
 
 // -- Defaults ---
 #define TTL_START 3

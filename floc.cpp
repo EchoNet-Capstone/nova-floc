@@ -1,3 +1,10 @@
+#include <stdint.h>
+
+#include <Arduino.h>
+
+#include <globals.hpp>
+#include <utils.hpp>
+
 #include "floc.hpp"
 
 uint8_t packet_id = 0;
