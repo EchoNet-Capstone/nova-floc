@@ -69,7 +69,7 @@ void floc_status_send(QueryStatusResponseFullPacket_t* statusResponse) {
 
 void parse_floc_data_packet(FlocHeader_t* floc_header, DataPacket_t* pkt, uint8_t size, DeviceAction_t* da) {
     if (size < sizeof(FlocHeader_t) + sizeof(DataHeader_t)) {
-        if (debug) Serial.printf("Invalid Command Packet: Too small\n");
+        if (debug) Serial.printf("Invalid Command Packet: Too small\r\n");
         return;
     }
 
@@ -79,7 +79,7 @@ void parse_floc_data_packet(FlocHeader_t* floc_header, DataPacket_t* pkt, uint8_
     uint8_t dataSize = header->size;
 
     if (size < sizeof(FlocHeader_t) + sizeof(DataHeader_t) + dataSize){
-        if (debug) Serial.printf("Invalid Data Packet: Incomplete data\n");
+        if (debug) Serial.printf("Invalid Data Packet: Incomplete data\r\n");
         return;
     }
 
@@ -94,10 +94,10 @@ void parse_floc_data_packet(FlocHeader_t* floc_header, DataPacket_t* pkt, uint8_
 }
 
 void parse_floc_command_packet(FlocHeader_t* floc_header, CommandPacket_t* pkt, uint8_t size, DeviceAction_t* da) {
-    if (debug) Serial.println("Command packet received...");
+    if (debug) Serial.printf("Command packet received...\r\n");
 
     if (size < sizeof(CommandHeader_t)) {
-        if (debug) Serial.printf("Invalid Command Packet: Too small\n");
+        if (debug) Serial.printf("Invalid Command Packet: Too small\r\n");
         return;
     }
 
@@ -112,7 +112,7 @@ void parse_floc_command_packet(FlocHeader_t* floc_header, CommandPacket_t* pkt, 
 
     // Validate data size
     if (size < sizeof(CommandHeader_t) + dataSize) {
-        if (debug) Serial.printf("Invalid Command Packet: Incomplete data\n");
+        if (debug) Serial.printf("Invalid Command Packet: Incomplete data\r\n");
         return;
     }
 
@@ -145,8 +145,8 @@ void parse_floc_command_packet(FlocHeader_t* floc_header, CommandPacket_t* pkt, 
 }
 
 void parse_floc_acknowledgement_packet(FlocHeader_t* floc_header, AckPacket_t* pkt, uint8_t size, DeviceAction_t* da) {
-    if (size < sizeof(FlocHeader_t) + sizeof(AckHeader_t)) {
-        if (debug) Serial.printf("Invalid ACK Packet: Too small\n");
+    if (size < sizeof(AckHeader_t)) {
+        if (debug) Serial.printf("Invalid ACK Packet: Too small\r\n");
         return;
     }
 
@@ -154,6 +154,14 @@ void parse_floc_acknowledgement_packet(FlocHeader_t* floc_header, AckPacket_t* p
     AckHeader_t *ackHeader = (AckHeader_t*)&pkt->header;
 
     uint8_t ack_pid = ackHeader->ack_pid;
+
+#ifdef ACK_DATA // ACK_DATA
+    uint8_t dataSize = ackHeader->size;
+
+    if (size < sizeof(AckHeader_t) + dataSize) {
+        if (debug) Serial.printf("Invalid Ack Packet: Incomplete data\r\n");
+    }
+#endif 
 
     // Setup DeviceAction
     da->flocType = FLOC_ACK_TYPE;
@@ -192,7 +200,7 @@ void parse_floc_response_packet(FlocHeader_t* floc_header, ResponsePacket_t* pkt
     if (debug) {
         Serial.printf("Response Packet Received:\r\n");
         Serial.printf("  Request Packet ID: %d\r\n", request_pid);
-        Serial.printf("  Data Size: %d\r\n", dataSize);
+        printBufferContents(responseData, dataSize);
     }
 }
 
@@ -202,7 +210,7 @@ void floc_broadcast_received(uint8_t* broadcastBuffer, uint8_t size, DeviceActio
         // Packet is too small to contain a valid header
         if (debug){
             Serial.printf("Packet too small to contain valid header!\r\n");
-            printPacketContents(broadcastBuffer, size);
+            printBufferContents(broadcastBuffer, size);
         }
         return;
     }
@@ -228,7 +236,7 @@ void floc_broadcast_received(uint8_t* broadcastBuffer, uint8_t size, DeviceActio
             pid,
             dest_addr,
             src_addr);
-        printPacketContents((uint8_t*) pkt, size);
+        printBufferContents((uint8_t*) pkt, size);
     }
 
     // Setup DeviceAction
@@ -274,14 +282,14 @@ void packet_received_nest(uint8_t* packetBuffer, uint8_t size, DeviceAction_t* d
         // Need a prefix character, a casting type, and at least one byte of data e.g. $BX for a broadcast with data 'X'
         if (debug){
             Serial.println("NeST packet too small. Minimum size : 3.");
-            printPacketContents(packetBuffer, size);
+            printBufferContents(packetBuffer, size);
         }
         return;
     }
 
     if(debug){
         Serial.printf("SerialFlocPacket received!\r\n");
-        printPacketContents(packetBuffer, size);
+        printBufferContents(packetBuffer, size);
     }
 
     uint8_t pkt_type = *(packetBuffer++); // Remove '$' prefix
