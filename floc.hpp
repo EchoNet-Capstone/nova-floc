@@ -42,6 +42,11 @@ typedef enum CommandType_e: uint8_t {  // Example
     // ...
 };
 
+typedef enum SerialFlocPacketDirection_e: uint8_t {
+    SERIAL_NEST_TO_BURD_TYPE = '$',
+    SERIAL_BURD_TO_NEST_TYPE = '#',
+};
+
 typedef enum SerialFlocPacketType_e: uint8_t {
     SERIAL_BROADCAST_TYPE = 'B',
     SERIAL_UNICAST_TYPE   = 'U',
@@ -154,8 +159,8 @@ typedef union SerialFlocPacketVariant_u {
 };
 
 // --- Serial FLOC Structures ---
-#define SERIAL_FLOC_NEST_TO_BURD_PRE    "$"
-#define SERIAL_FLOC_BURD_TO_NEST_PRE    "#"
+#define SERIAL_FLOC_NEST_TO_BURD_PRE    '$'
+#define SERIAL_FLOC_BURD_TO_NEST_PRE    '#'
 #define SERIAL_FLOC_PRE_SIZE            1
 
 // Define the header first.
@@ -185,16 +190,16 @@ typedef struct SerialFlocPacket_t {
 #define SERIAL_FLOC_MAX_SIZE                (SERIAL_FLOC_PRE_SIZE + SERIAL_FLOC_HEADER_SIZE + FLOC_PACKET_MAX_SIZE) // Maximum size for a serial floc packet.
 
 // Actuals (with packet)
-#define DATA_PACKET_ACTUAL_SIZE(pkt)        (FLOC_HEADER_COMMON_SIZE + DATA_HEADER_SIZE + x->payload.data.header.size)
-#define COMMAND_PACKET_ACTUAL_SIZE(pkt)     (FLOC_HEADER_COMMON_SIZE + COMMAND_HEADER_SIZE + x->payload.command.header.size)
-#define RESPONSE_PACKET_ACTUAL_SIZE(pkt)    (FLOC_HEADER_COMMON_SIZE + RESPONSE_HEADER_SIZE + x->payload.response.header.size)
+#define DATA_PACKET_ACTUAL_SIZE(pkt)        (FLOC_HEADER_COMMON_SIZE + DATA_HEADER_SIZE + (pkt)->payload.data.header.size)
+#define COMMAND_PACKET_ACTUAL_SIZE(pkt)     (FLOC_HEADER_COMMON_SIZE + COMMAND_HEADER_SIZE + (pkt)->payload.command.header.size)
+#define RESPONSE_PACKET_ACTUAL_SIZE(pkt)    (FLOC_HEADER_COMMON_SIZE + RESPONSE_HEADER_SIZE + (pkt)->payload.response.header.size)
 #ifdef ACK_DATA // ACK_DATA
-#define ACK_PACKET_ACTUAL_SIZE(pkt)         (FLOC_HEADER_COMMON_SIZE + ACK_HEADER_SIZE + x->payload.ack.header.size)
+#define ACK_PACKET_ACTUAL_SIZE(pkt)         (FLOC_HEADER_COMMON_SIZE + ACK_HEADER_SIZE + pkt->payload.ack.header.size)
 #else
 #define ACK_PACKET_ACTUAL_SIZE(pkt)         (FLOC_HEADER_COMMON_SIZE + ACK_HEADER_SIZE)
 #endif
 
-#define SERIAL_FLOC_ACTUAL_SIZE(pkt)        (SERIAL_FLOC_HEADER_SIZE + pkt->header.size)
+#define SERIAL_FLOC_ACTUAL_SIZE(pkt)        (SERIAL_FLOC_HEADER_SIZE + (pkt)->header.size)
 
 uint16_t get_network_id();
 uint8_t use_packet_id();
