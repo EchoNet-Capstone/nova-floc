@@ -141,7 +141,7 @@ void parse_floc_command_packet(FlocHeader_t* floc_header, CommandPacket_t* pkt, 
         //...
 
         default:
-            if (debug) Serial.printf("Unknown FLOC Command Type! Type: [%01u]\n", commandType);
+            if (debug) Serial.printf("Unknown FLOC Command Type! Type: [%01u]\r\n", commandType);
             break;
     }
 }
@@ -257,27 +257,31 @@ void floc_broadcast_received(uint8_t* broadcastBuffer, uint8_t size, DeviceActio
     // Determine the type of the packet
     switch (type) {
         case FLOC_DATA_TYPE:
-            // Handle data packet if needed
-
+        {
+            DataPacket_t* data_pkt = (DataPacket_t*) &pkt->payload;
+            parse_floc_data_packet(header, data_pkt, size - FLOC_HEADER_COMMON_SIZE, da);
             break;
-        case FLOC_COMMAND_TYPE: {
+        }
+        case FLOC_COMMAND_TYPE:
+        {
             CommandPacket_t* cmd_pkt = (CommandPacket_t*)&pkt->payload;
             parse_floc_command_packet(header, cmd_pkt, size - FLOC_HEADER_COMMON_SIZE, da);
             break;
         }
-        case FLOC_ACK_TYPE: {
+        case FLOC_ACK_TYPE:
+        {
             AckPacket_t* ack_pkt = (AckPacket_t*)&pkt->payload;
             parse_floc_acknowledgement_packet(header, ack_pkt, size - FLOC_HEADER_COMMON_SIZE, da);
             break;
         }
-        case FLOC_RESPONSE_TYPE: {
+        case FLOC_RESPONSE_TYPE:
+        {
             ResponsePacket_t* resp_pkt = (ResponsePacket_t*)&pkt->payload;
             parse_floc_response_packet(header, resp_pkt, size - FLOC_HEADER_COMMON_SIZE, da);
             break;
-
         }
         default:
-            if (debug) Serial.printf("Unknown FLOC packet type! Type: [%03u]", type);
+            if (debug) Serial.printf("Unknown FLOC packet type! Type: [%03u]\r\n", type);
             break;
     }
 }
@@ -293,7 +297,7 @@ void packet_received_nest(uint8_t* packetBuffer, uint8_t size, DeviceAction_t* d
     if (size < 3) {
         // Need a prefix character, a casting type, and at least one byte of data e.g. $BX for a broadcast with data 'X'
         if (debug){
-            Serial.println("NeST packet too small. Minimum size : 3.");
+            Serial.println("NeST packet too small. Minimum size : 3.\r\n");
             printBufferContents(packetBuffer, size);
         }
         return;
@@ -313,6 +317,8 @@ void packet_received_nest(uint8_t* packetBuffer, uint8_t size, DeviceAction_t* d
             // Broadcast the data received on the serial line
             case SERIAL_BROADCAST_TYPE: // 'B'
             {
+                if (debug) Serial.printf("Serial Broadcast Packet Received...\r\n");
+                
                 SerialBroadcastPacket_t* broadcastPacket = (SerialBroadcastPacket_t* )&pkt->payload;
                 broadcast(MODEM_SERIAL_CONNECTION, (char*) broadcastPacket, pkt->header.size);
                 break;
