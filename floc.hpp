@@ -29,32 +29,37 @@
 // --- Packet Type Enums ---
 
 // The 4 types of floc packets
-typedef enum FlocPacketType_e : uint8_t{
+typedef enum
+FlocPacketType_e : uint8_t {
     FLOC_DATA_TYPE = 0x0,
     FLOC_COMMAND_TYPE = 0x1,
     FLOC_ACK_TYPE = 0x2,
     FLOC_RESPONSE_TYPE = 0x3
 };
-  
-typedef enum CommandType_e: uint8_t {  // Example
+
+typedef enum
+CommandType_e: uint8_t {  // Example
     COMMAND_TYPE_1 = 0x1,
     COMMAND_TYPE_2 = 0x2,
     // ...
 };
 
-typedef enum SerialFlocPacketDirection_e: uint8_t {
+typedef enum
+SerialFlocPacketDirection_e: uint8_t {
     SERIAL_NEST_TO_BURD_TYPE = '$',
     SERIAL_BURD_TO_NEST_TYPE = '#',
 };
 
-typedef enum SerialFlocPacketType_e: uint8_t {
+typedef enum
+SerialFlocPacketType_e: uint8_t {
     SERIAL_BROADCAST_TYPE = 'B',
     SERIAL_UNICAST_TYPE   = 'U',
     // ...
 };
 
 // --- FLOC Packet Headers ---
-typedef struct FlocHeader_t {
+typedef struct
+FlocHeader_t {
     uint8_t ttl : FLOC_TTL_SIZE;
     FlocPacketType_e type : FLOC_TYPE_SIZE;
     uint16_t nid: FLOC_NID_SIZE;
@@ -64,23 +69,27 @@ typedef struct FlocHeader_t {
     uint16_t src_addr;
 };
 
-typedef struct DataHeader_t {
+typedef struct
+DataHeader_t {
     uint8_t size;
 };
 
-typedef struct CommandHeader_t {
+typedef struct
+CommandHeader_t {
     CommandType_e command_type: COMMAND_TYPE_SIZE;
     uint8_t size;  // Size of the command data
 };
 
-typedef struct AckHeader_t {
+typedef struct
+AckHeader_t {
     uint8_t ack_pid;
 #ifdef ACK_DATA // ACK_DATA
     uint8_t size;
 #endif // ACK_DATA
 };
 
-typedef struct ResponseHeader_t {
+typedef struct
+ResponseHeader_t {
     uint8_t request_pid;
     uint8_t size;  // Size of the response data
 };
@@ -108,17 +117,20 @@ typedef struct ResponseHeader_t {
 
 
 // --- Complete FLOC Packet Structures ---
-typedef struct DataPacket_t {
+typedef struct
+DataPacket_t {
     DataHeader_t header;
     uint8_t data[MAX_DATA_DATA_SIZE];
 };
 
-typedef struct CommandPacket_t {
+typedef struct
+CommandPacket_t {
     CommandHeader_t header;
     uint8_t data[MAX_COMMAND_DATA_SIZE];  // Statically allocated, maximum size
 };
 
-typedef struct AckPacket_t {
+typedef struct
+AckPacket_t {
     AckHeader_t header;
     // If you add data to acks
 #ifdef ACK_DATA // ACK_DATA
@@ -126,34 +138,40 @@ typedef struct AckPacket_t {
 #endif // ACK_DATA
 };
 
-typedef struct ResponsePacket_t {
+typedef struct
+ResponsePacket_t {
     ResponseHeader_t header;
     uint8_t data[MAX_RESPONSE_DATA_SIZE]; // Statically allocated, maximum size
 };
 
-typedef union FlocPacketVariant_u {
+typedef union
+FlocPacketVariant_u {
     DataPacket_t     data;
     CommandPacket_t  command;
     AckPacket_t      ack;
     ResponsePacket_t response;
 };
 
-typedef struct FlocPacket_t {
+typedef struct
+FlocPacket_t {
     FlocHeader_t header;
     FlocPacketVariant_u payload;
 };
 
-typedef struct SerialUnicastPacket_t {
+typedef struct
+SerialUnicastPacket_t {
     uint16_t dest_addr;
     FlocPacketVariant_u floc_packet;
 };
 
-typedef struct SerialBroadcastPacket_t {
+typedef struct
+SerialBroadcastPacket_t {
     FlocPacketVariant_u floc_packet;
 };
 
 // Now define the union with complete types.
-typedef union SerialFlocPacketVariant_u {
+typedef union
+SerialFlocPacketVariant_u {
   typedef struct SerialBroadcastPacket_t broadcast;
   typedef struct SerialUnicastPacket_t unicast;
 };
@@ -164,14 +182,16 @@ typedef union SerialFlocPacketVariant_u {
 #define SERIAL_FLOC_PRE_SIZE            1
 
 // Define the header first.
-typedef struct SerialFlocHeader_t {
+typedef struct
+SerialFlocHeader_t {
     SerialFlocPacketType_e type: SERIAL_FLOC_TYPE_SIZE;
     uint8_t                size;
 };
 
 #define SERIAL_FLOC_HEADER_SIZE     (sizeof(SerialFlocHeader_t))
 
-typedef struct SerialFlocPacket_t {
+typedef struct
+SerialFlocPacket_t {
     SerialFlocHeader_t header;
     SerialFlocPacketVariant_u payload;
 };
@@ -204,21 +224,76 @@ typedef struct SerialFlocPacket_t {
 GET_SET_FUNC_PROTO(uint16_t, network_id)
 GET_SET_FUNC_PROTO(uint16_t, device_id)
 
-uint8_t use_packet_id();
+uint8_t
+use_packet_id(
+    void
+);
 
-void floc_status_query(uint8_t dest_addr);
+void
+floc_status_query(
+    uint8_t dest_addr
+);
 
-void floc_acknowledgement_send(uint8_t ttl, uint8_t ack_pid, uint16_t dest_addr);
-void floc_status_send(QueryStatusResponseFullPacket_t* statusResponse);
-void floc_error_send(uint8_t ttl, uint8_t err_pid, uint8_t err_dst_addr);
+void
+floc_acknowledgement_send(
+    uint8_t ttl,
+    uint8_t ack_pid,
+    uint16_t dest_addr
+);
 
-void parse_floc_command_packet(FlocHeader_t* floc_header, CommandPacket_t* pkt, uint8_t size, DeviceAction_t* da) ;
-void parse_floc_acknowledgement_packet(FlocHeader_t* floc_header, AckPacket_t* pkt, uint8_t size, DeviceAction_t* da);
-void parse_floc_response_packet(FlocHeader_t* floc_header, ResponsePacket_t* pkt, uint8_t size, DeviceAction_t* da);
+void
+floc_status_send(
+    QueryStatusResponseFullPacket_t* statusResponse
+);
 
-void floc_broadcast_received(uint8_t* broadcastBuffer, uint8_t size, DeviceAction_t* da);
-void floc_unicast_received(uint8_t* unicastBuffer, uint8_t size, DeviceAction_t* da);
+void
+floc_error_send(
+    uint8_t ttl,
+    uint8_t err_pid,
+    uint8_t err_dst_addr
+);
 
-void packet_received_nest(uint8_t* packetBuffer, uint8_t size, DeviceAction_t* da);
+void
+parse_floc_command_packet(
+    FlocHeader_t* floc_header,
+    CommandPacket_t* pkt, uint8_t size, DeviceAction_t* da
+);
+
+void
+parse_floc_acknowledgement_packet(
+    FlocHeader_t* floc_header,
+    AckPacket_t* pkt,
+    uint8_t size,
+    DeviceAction_t* da
+);
+
+void
+parse_floc_response_packet(
+    FlocHeader_t* floc_header,
+    ResponsePacket_t* pkt,
+    uint8_t size,
+    DeviceAction_t* da
+);
+
+void
+floc_broadcast_received(
+    uint8_t* broadcastBuffer,
+    uint8_t size,
+    DeviceAction_t* da
+);
+
+void
+floc_unicast_received(
+    uint8_t* unicastBuffer,
+    uint8_t size,
+    DeviceAction_t* da
+);
+
+void
+packet_received_nest(
+    uint8_t* packetBuffer,
+    uint8_t size,
+    DeviceAction_t* da
+);
 
 #endif

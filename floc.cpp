@@ -15,16 +15,27 @@ uint8_t status_request_pid = -1;
 GET_SET_FUNC_DEF(uint16_t, network_id, 0)
 GET_SET_FUNC_DEF(uint16_t, device_id, 0)
 
-uint8_t use_packet_id() {
+uint8_t
+use_packet_id(
+    void
+){
     return packet_id++;
 }
 
-void floc_status_query(uint8_t dest_addr) {
+void
+floc_status_query(
+    uint8_t dest_addr
+){
     status_response_dest_addr = dest_addr;
     query_status(MODEM_SERIAL_CONNECTION);
 }
 
-void floc_acknowledgement_send(uint8_t ttl, uint8_t ack_pid, uint16_t dest_addr) {
+void
+floc_acknowledgement_send(
+    uint8_t ttl,
+    uint8_t ack_pid,
+    uint16_t dest_addr
+){
     // Construct the packet
     FlocPacket_t packet;
     packet.header.ttl = ttl;
@@ -40,7 +51,10 @@ void floc_acknowledgement_send(uint8_t ttl, uint8_t ack_pid, uint16_t dest_addr)
     broadcast(MODEM_SERIAL_CONNECTION, (char*)&packet, ACK_PACKET_ACTUAL_SIZE(&packet));
 }
 
-void floc_status_send(QueryStatusResponseFullPacket_t* statusResponse) {
+void
+floc_status_send(
+    QueryStatusResponseFullPacket_t* statusResponse
+){
     // Construct the packet
     FlocPacket_t packet;
     packet.header.ttl = TTL_START;
@@ -60,7 +74,12 @@ void floc_status_send(QueryStatusResponseFullPacket_t* statusResponse) {
     broadcast(MODEM_SERIAL_CONNECTION, (char*)(&packet), RESPONSE_PACKET_ACTUAL_SIZE(&packet));
 }
 
-void floc_error_send(uint8_t ttl, uint8_t err_pid, uint8_t err_dst_addr) {
+void
+floc_error_send(
+    uint8_t ttl,
+    uint8_t err_pid,
+    uint8_t err_dst_addr
+){
     FlocPacket_t packet;
     packet.header.ttl = TTL_START;
     packet.header.type = FLOC_RESPONSE_TYPE;
@@ -76,16 +95,21 @@ void floc_error_send(uint8_t ttl, uint8_t err_pid, uint8_t err_dst_addr) {
     broadcast(MODEM_SERIAL_CONNECTION, (char*)(&packet), RESPONSE_PACKET_ACTUAL_SIZE(&packet));
 }
 
-void parse_floc_data_packet(FlocHeader_t* floc_header, DataPacket_t* pkt, uint8_t size, DeviceAction_t* da) {
+void
+parse_floc_data_packet(
+    FlocHeader_t* floc_header,
+    DataPacket_t* pkt, uint8_t size,
+    DeviceAction_t* da
+){
 #ifdef DEBUG_ON // DEBUG_ON
     Serial.printf("Data packet received...\r\n");
 #endif // DEBUG_ON
-    
+
     if (size < sizeof(FlocHeader_t) + sizeof(DataHeader_t)) {
     #ifdef DEBUG_ON // DEBUG_ON
         Serial.printf("Invalid Command Packet: Too small\r\n");
     #endif // DEBUG_ON
- 
+
         return;
     }
 
@@ -98,7 +122,7 @@ void parse_floc_data_packet(FlocHeader_t* floc_header, DataPacket_t* pkt, uint8_
     #ifdef DEBUG_ON // DEBUG_ON
         Serial.printf("Invalid Data Packet: Incomplete data\r\n");
     #endif // DEBUG_ON
- 
+
         return;
     }
 
@@ -112,16 +136,22 @@ void parse_floc_data_packet(FlocHeader_t* floc_header, DataPacket_t* pkt, uint8_
     da->data = data;
 }
 
-void parse_floc_command_packet(FlocHeader_t* floc_header, CommandPacket_t* pkt, uint8_t size, DeviceAction_t* da) {
+void
+parse_floc_command_packet(
+    FlocHeader_t* floc_header,
+    CommandPacket_t* pkt,
+    uint8_t size,
+    DeviceAction_t* da
+){
 #ifdef DEBUG_ON // DEBUG_ON
     Serial.printf("Command packet received...\r\n");
 #endif // DEBUG_ON
- 
+
     if (size < sizeof(CommandHeader_t)) {
     #ifdef DEBUG_ON // DEBUG_ON
         Serial.printf("Invalid Command Packet: Too small\r\n");
     #endif // DEBUG_ON
- 
+
         return;
     }
 
@@ -131,17 +161,17 @@ void parse_floc_command_packet(FlocHeader_t* floc_header, CommandPacket_t* pkt, 
     // Extract command type and size
     uint8_t commandType = header->command_type;
     uint8_t dataSize = header->size;
-    
+
 #ifdef DEBUG_ON // DEBUG_ON
     Serial.printf("\tCommandPacket\r\n\t\tType: %d\r\n\t\tSize: %d\r\n", commandType, dataSize);
 #endif // DEBUG_ON
- 
+
     // Validate data size
     if (size < sizeof(CommandHeader_t) + dataSize) {
     #ifdef DEBUG_ON // DEBUG_ON
         Serial.printf("Invalid Command Packet: Incomplete data\r\n");
     #endif // DEBUG_ON
- 
+
         return;
     }
 
@@ -171,17 +201,23 @@ void parse_floc_command_packet(FlocHeader_t* floc_header, CommandPacket_t* pkt, 
         #ifdef DEBUG_ON // DEBUG_ON
             Serial.printf("Unknown FLOC Command Type! Type: [%01u]\r\n", commandType);
         #endif // DEBUG_ON
- 
+
             break;
     }
 }
 
-void parse_floc_acknowledgement_packet(FlocHeader_t* floc_header, AckPacket_t* pkt, uint8_t size, DeviceAction_t* da) {
+void
+parse_floc_acknowledgement_packet(
+    FlocHeader_t* floc_header,
+    AckPacket_t* pkt,
+    uint8_t size,
+    DeviceAction_t* da
+){
     if (size < sizeof(AckHeader_t)) {
     #ifdef DEBUG_ON // DEBUG_ON
         Serial.printf("Invalid ACK Packet: Too small\r\n");
     #endif // DEBUG_ON
- 
+
         return;
     }
 
@@ -197,7 +233,7 @@ void parse_floc_acknowledgement_packet(FlocHeader_t* floc_header, AckPacket_t* p
     #ifdef DEBUG_ON // DEBUG_ON
         Serial.printf("Invalid Ack Packet: Incomplete data\r\n");
     #endif // DEBUG_ON
- 
+
     }
 
     uint8_t* data = pkt->data;
@@ -220,12 +256,18 @@ void parse_floc_acknowledgement_packet(FlocHeader_t* floc_header, AckPacket_t* p
 #endif // DEBUG_ON
 }
 
-void parse_floc_response_packet(FlocHeader_t* floc_header, ResponsePacket_t* pkt, uint8_t size, DeviceAction_t* da) {
+void
+parse_floc_response_packet(
+    FlocHeader_t* floc_header,
+    ResponsePacket_t* pkt,
+    uint8_t size,
+    DeviceAction_t* da
+){
     if (size < sizeof(ResponseHeader_t)) {
     #ifdef DEBUG_ON // DEBUG_ON
         Serial.printf("Invalid Response Packet: Too small\r\n");
     #endif // DEBUG_ON
- 
+
         return;
     }
 
@@ -239,7 +281,7 @@ void parse_floc_response_packet(FlocHeader_t* floc_header, ResponsePacket_t* pkt
     #ifdef DEBUG_ON // DEBUG_ON
         Serial.printf("Invalid Response Packet: Incomplete data\r\n");
     #endif // DEBUG_ON
- 
+
         return;
     }
 
@@ -258,14 +300,19 @@ void parse_floc_response_packet(FlocHeader_t* floc_header, ResponsePacket_t* pkt
 #endif // DEBUG_ON
 }
 
-void floc_broadcast_received(uint8_t* broadcastBuffer, uint8_t size, DeviceAction_t* da) {
+void
+floc_broadcast_received(
+    uint8_t* broadcastBuffer,
+    uint8_t size,
+    DeviceAction_t* da
+){
     if (size < sizeof(FlocHeader_t)) {
         // Packet is too small to contain a valid header
     #ifdef DEBUG_ON // DEBUG_ON
         Serial.printf("Packet too small to contain valid header!\r\n");
         printBufferContents(broadcastBuffer, size);
     #endif // DEBUG_ON
- 
+
         return;
     }
 
@@ -292,7 +339,7 @@ void floc_broadcast_received(uint8_t* broadcastBuffer, uint8_t size, DeviceActio
         src_addr);
     printBufferContents((uint8_t*) pkt, size);
 #endif // DEBUG_ON
- 
+
     // Setup DeviceAction
     da->srcAddr = src_addr;
 
@@ -326,26 +373,36 @@ void floc_broadcast_received(uint8_t* broadcastBuffer, uint8_t size, DeviceActio
         #ifdef DEBUG_ON // DEBUG_ON
             Serial.printf("Unknown FLOC packet type! Type: [%03u]\r\n", type);
         #endif // DEBUG_ON
- 
+
             break;
     }
 }
 
-void floc_unicast_received(uint8_t* unicastBuffer, uint8_t size, DeviceAction_t* da) {
+void
+floc_unicast_received(
+    uint8_t* unicastBuffer,
+    uint8_t size,
+    DeviceAction_t* da
+){
     // May not be used
 }
 
 // BEGIN NeST SERIAL CONNECTION FUNCTIONS -----------------
 
-void packet_received_nest(uint8_t* packetBuffer, uint8_t size, DeviceAction_t* da) {
-    
+void
+packet_received_nest(
+    uint8_t* packetBuffer,
+    uint8_t size,
+    DeviceAction_t* da
+){
+
     if (size < 3) {
         // Need a prefix character, a casting type, and at least one byte of data e.g. $BX for a broadcast with data 'X'
     #ifdef DEBUG_ON // DEBUG_ON
         Serial.println("NeST packet too small. Minimum size : 3.\r\n");
         printBufferContents(packetBuffer, size);
     #endif // DEBUG_ON
- 
+
         return;
     }
 
@@ -353,7 +410,7 @@ void packet_received_nest(uint8_t* packetBuffer, uint8_t size, DeviceAction_t* d
     Serial.printf("SerialFlocPacket received!\r\n");
     printBufferContents(packetBuffer, size);
 #endif // DEBUG_ON
- 
+
     uint8_t pkt_type = *(packetBuffer++); // Remove '$' prefix
 
     SerialFlocPacket_t* pkt = (SerialFlocPacket_t*)(packetBuffer);
@@ -366,7 +423,7 @@ void packet_received_nest(uint8_t* packetBuffer, uint8_t size, DeviceAction_t* d
             #ifdef DEBUG_ON // DEBUG_ON
                 Serial.printf("Serial Broadcast Packet Received...\r\n");
             #endif // DEBUG_ON
- 
+
                 SerialBroadcastPacket_t* broadcastPacket = (SerialBroadcastPacket_t* )&pkt->payload;
                 broadcast(MODEM_SERIAL_CONNECTION, (char*) broadcastPacket, pkt->header.size);
                 break;
@@ -379,13 +436,13 @@ void packet_received_nest(uint8_t* packetBuffer, uint8_t size, DeviceAction_t* d
             #ifdef DEBUG_ON // DEBUG_ON
                 Serial.printf("Unhandled Serial NeST-to-BuRD packet type! Prefix [%c]\r\n", (char) pkt->header.type);
             #endif // DEBUG_ON
- 
+
                 return;
         }
     } else {
     #ifdef DEBUG_ON // DEBUG_ON
         Serial.printf("Unhandled Serial packet type! Prefix [%c]\r\n", pkt_type);
     #endif // DEBUG_ON
-    
+
     }
 }
