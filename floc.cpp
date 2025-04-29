@@ -2,6 +2,13 @@
 
 #include <Arduino.h>
 
+#ifdef min
+#undef min
+#endif
+#ifdef max
+#undef max
+#endif
+
 #include <globals.hpp>
 #include <utils.hpp>
 
