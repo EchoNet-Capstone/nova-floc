@@ -34,7 +34,7 @@ typedef enum FlocPacketType_e : uint8_t{
     FLOC_COMMAND_TYPE = 0x1,
     FLOC_ACK_TYPE = 0x2,
     FLOC_RESPONSE_TYPE = 0x3
-  };
+};
   
 typedef enum CommandType_e: uint8_t {  // Example
     COMMAND_TYPE_1 = 0x1,
@@ -201,14 +201,16 @@ typedef struct SerialFlocPacket_t {
 
 #define SERIAL_FLOC_ACTUAL_SIZE(pkt)        (SERIAL_FLOC_HEADER_SIZE + (pkt)->header.size)
 
-uint16_t get_network_id();
+GET_SET_FUNC_PROTO(uint16_t, network_id)
+GET_SET_FUNC_PROTO(uint16_t, device_id)
+
 uint8_t use_packet_id();
-uint16_t get_device_id();
 
 void floc_status_query(uint8_t dest_addr);
 
 void floc_acknowledgement_send(uint8_t ttl, uint8_t ack_pid, uint16_t dest_addr);
 void floc_status_send(QueryStatusResponseFullPacket_t* statusResponse);
+void floc_error_send(uint8_t ttl, uint8_t err_pid, uint8_t err_dst_addr);
 
 void parse_floc_command_packet(FlocHeader_t* floc_header, CommandPacket_t* pkt, uint8_t size, DeviceAction_t* da) ;
 void parse_floc_acknowledgement_packet(FlocHeader_t* floc_header, AckPacket_t* pkt, uint8_t size, DeviceAction_t* da);
