@@ -1,5 +1,4 @@
-#ifndef FLOC_H
-#define FLOC_H
+#pragma once
 
 #include <stdint.h>
 
@@ -295,5 +294,3 @@ packet_received_nest(
     uint8_t size,
     DeviceAction_t* da
 );
-
-#endif
