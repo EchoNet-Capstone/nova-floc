@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 #include <device_actions.hpp>
-#include <nmv3_api.hpp>
+#include <get_set_macros.hpp>
 
 // -- Defaults ---
 #define TTL_START 3
@@ -242,7 +242,8 @@ floc_acknowledgement_send(
 
 void
 floc_status_send(
-    QueryStatusResponseFullPacket_t* statusResponse
+    uint8_t node_addr,
+    float supply_voltage
 );
 
 void

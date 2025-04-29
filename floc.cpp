@@ -11,6 +11,7 @@
 
 #include <globals.hpp>
 #include <utils.hpp>
+#include <nmv3_api.hpp>
 
 #include "floc.hpp"
 
@@ -60,7 +61,8 @@ floc_acknowledgement_send(
 
 void
 floc_status_send(
-    QueryStatusResponseFullPacket_t* statusResponse
+    uint8_t node_addr,
+    float supply_voltage
 ){
     // Construct the packet
     FlocPacket_t packet;
@@ -73,10 +75,11 @@ floc_status_send(
     packet.header.src_addr = htons(get_device_id());
 
     packet.payload.response.header.request_pid = packet.header.pid;
-    packet.payload.response.header.size = QUERY_STATUS_RESP_MAX;
+    packet.payload.response.header.size = sizeof(node_addr) + sizeof(supply_voltage);
 
     // Copy the status string into the response data
-    memcpy(packet.payload.response.data, statusResponse, QUERY_STATUS_RESP_MAX);
+    memcpy(packet.payload.response.data, &node_addr, sizeof(node_addr));
+    memcpy(packet.payload.response.data + sizeof(node_addr), &supply_voltage, sizeof(supply_voltage));
 
     broadcast(MODEM_SERIAL_CONNECTION, (char*)(&packet), RESPONSE_PACKET_ACTUAL_SIZE(&packet));
 }
