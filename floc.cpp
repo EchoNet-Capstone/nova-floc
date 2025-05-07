@@ -35,7 +35,7 @@ floc_status_query(
     uint8_t dest_addr
 ){
     status_response_dest_addr = dest_addr;
-    query_status(MODEM_SERIAL_CONNECTION);
+    query_status();
 }
 
 void
@@ -56,7 +56,7 @@ floc_acknowledgement_send(
 
     packet.payload.ack.header.ack_pid = ack_pid;
 
-    broadcast(MODEM_SERIAL_CONNECTION, (char*)&packet, ACK_PACKET_ACTUAL_SIZE(&packet));
+    broadcast((char*)&packet, ACK_PACKET_ACTUAL_SIZE(&packet));
 }
 
 void
@@ -81,7 +81,7 @@ floc_status_send(
     memcpy(packet.payload.response.data, &node_addr, sizeof(node_addr));
     memcpy(packet.payload.response.data + sizeof(node_addr), &supply_voltage, sizeof(supply_voltage));
 
-    broadcast(MODEM_SERIAL_CONNECTION, (char*)(&packet), RESPONSE_PACKET_ACTUAL_SIZE(&packet));
+    broadcast((char*)(&packet), RESPONSE_PACKET_ACTUAL_SIZE(&packet));
 }
 
 void
@@ -102,7 +102,7 @@ floc_error_send(
     packet.payload.response.header.request_pid = err_pid;
     packet.payload.response.header.size = 0;
 
-    broadcast(MODEM_SERIAL_CONNECTION, (char*)(&packet), RESPONSE_PACKET_ACTUAL_SIZE(&packet));
+    broadcast((char*)(&packet), RESPONSE_PACKET_ACTUAL_SIZE(&packet));
 }
 
 void
@@ -395,64 +395,4 @@ floc_unicast_received(
     DeviceAction_t* da
 ){
     // May not be used
-}
-
-// BEGIN NeST SERIAL CONNECTION FUNCTIONS -----------------
-
-void
-packet_received_nest(
-    uint8_t* packetBuffer,
-    uint8_t size,
-    DeviceAction_t* da
-){
-
-    if (size < 3) {
-        // Need a prefix character, a casting type, and at least one byte of data e.g. $BX for a broadcast with data 'X'
-    #ifdef DEBUG_ON // DEBUG_ON
-        Serial.println("NeST packet too small. Minimum size : 3.\r\n");
-        printBufferContents(packetBuffer, size);
-    #endif // DEBUG_ON
-
-        return;
-    }
-
-#ifdef DEBUG_ON // DEBUG_ON
-    Serial.printf("SerialFlocPacket received!\r\n");
-    printBufferContents(packetBuffer, size);
-#endif // DEBUG_ON
-
-    uint8_t pkt_type = *(packetBuffer++); // Remove '$' prefix
-
-    SerialFlocPacket_t* pkt = (SerialFlocPacket_t*)(packetBuffer);
-
-    if (pkt_type == SERIAL_NEST_TO_BURD_TYPE) {
-        switch (pkt->header.type) {
-            // Broadcast the data received on the serial line
-            case SERIAL_BROADCAST_TYPE: // 'B'
-            {
-            #ifdef DEBUG_ON // DEBUG_ON
-                Serial.printf("Serial Broadcast Packet Received...\r\n");
-            #endif // DEBUG_ON
-
-                SerialBroadcastPacket_t* broadcastPacket = (SerialBroadcastPacket_t* )&pkt->payload;
-                broadcast(MODEM_SERIAL_CONNECTION, (char*) broadcastPacket, pkt->header.size);
-                break;
-            }
-            case SERIAL_UNICAST_TYPE:   // 'U'
-                // TODO : need to extract dst from packet in order to send packet
-                // May not need to implement, depending on networking strategy
-                break;
-            default:
-            #ifdef DEBUG_ON // DEBUG_ON
-                Serial.printf("Unhandled Serial NeST-to-BuRD packet type! Prefix [%c]\r\n", (char) pkt->header.type);
-            #endif // DEBUG_ON
-
-                return;
-        }
-    } else {
-    #ifdef DEBUG_ON // DEBUG_ON
-        Serial.printf("Unhandled Serial packet type! Prefix [%c]\r\n", pkt_type);
-    #endif // DEBUG_ON
-
-    }
 }
