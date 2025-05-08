@@ -1,27 +1,70 @@
 #include <stdint.h>
 
+#ifdef ARDUINO // ARDUINO
 #include <Arduino.h>
 
-#ifdef min
+#ifdef min // min
 #undef min
-#endif
-#ifdef max
-#undef max
-#endif
+#endif //min
 
-#include <globals.hpp>
-#include <utils.hpp>
+#ifdef max //min
+#undef max
+#endif //min
+
+#endif // ARDUINO
+
 #include <nmv3_api.hpp>
 
 #include "floc.hpp"
+#include "floc_utils.hpp"
 
 uint8_t packet_id = 0;
 
 uint16_t status_response_dest_addr = -1; // Address that has requested modem status info
 uint8_t status_request_pid = -1;
 
-GET_SET_FUNC_DEF(uint16_t, network_id, 0)
-GET_SET_FUNC_DEF(uint16_t, device_id, 0)
+uint16_t network_id = 0;
+uint16_t device_id = 0;
+
+uint16_t
+get_network_id(
+    void
+){
+    return network_id;
+}
+
+void
+set_network_id(
+    uint16_t new_network_id
+){
+    network_id = new_network_id;
+}
+
+uint16_t
+get_device_id(
+    void
+){
+    return device_id;
+}
+
+void
+set_device_id(
+    uint16_t new_device_id
+){
+    device_id = new_device_id;
+}
+
+void
+init_da(
+    void
+){
+    da.modemRespType = -1;
+    da.flocType = -1;
+    da.commandType = -1;
+    da.srcAddr = -1;
+    da.dataSize = -1;
+    da.data = NULL;
+}
 
 uint8_t
 use_packet_id(
@@ -108,8 +151,8 @@ floc_error_send(
 void
 parse_floc_data_packet(
     FlocHeader_t* floc_header,
-    DataPacket_t* pkt, uint8_t size,
-    DeviceAction_t* da
+    DataPacket_t* pkt, 
+    uint8_t size
 ){
 #ifdef DEBUG_ON // DEBUG_ON
     Serial.printf("Data packet received...\r\n");
@@ -140,18 +183,17 @@ parse_floc_data_packet(
     uint8_t* data = pkt->data;
 
     // Setup DeviceAction
-    da->flocType = FLOC_DATA_TYPE;
-    da->srcAddr = floc_header->src_addr;
-    da->dataSize = dataSize;
-    da->data = data;
+    da.flocType = FLOC_DATA_TYPE;
+    da.srcAddr = floc_header->src_addr;
+    da.dataSize = dataSize;
+    da.data = data;
 }
 
 void
 parse_floc_command_packet(
     FlocHeader_t* floc_header,
     CommandPacket_t* pkt,
-    uint8_t size,
-    DeviceAction_t* da
+    uint8_t size
 ){
 #ifdef DEBUG_ON // DEBUG_ON
     Serial.printf("Command packet received...\r\n");
@@ -189,19 +231,19 @@ parse_floc_command_packet(
     uint8_t* data = pkt->data;
 
     // Setup DeviceAction
-    da->flocType = FLOC_COMMAND_TYPE;
-    da->data = data;
-    da->dataSize = dataSize;
+    da.flocType = FLOC_COMMAND_TYPE;
+    da.data = data;
+    da.dataSize = dataSize;
 
     // Handle the command based on the type
     switch (commandType) {
         case COMMAND_TYPE_1:
-            da->commandType = commandType;
+            da.commandType = commandType;
 
             floc_acknowledgement_send(TTL_START, floc_header->pid, ntohs(floc_header->src_addr));
             break;
         case COMMAND_TYPE_2:
-            da->commandType = commandType;
+            da.commandType = commandType;
 
             floc_acknowledgement_send(TTL_START, floc_header->pid, ntohs(floc_header->src_addr));
             break;
@@ -220,8 +262,7 @@ void
 parse_floc_acknowledgement_packet(
     FlocHeader_t* floc_header,
     AckPacket_t* pkt,
-    uint8_t size,
-    DeviceAction_t* da
+    uint8_t size
 ){
     if (size < sizeof(AckHeader_t)) {
     #ifdef DEBUG_ON // DEBUG_ON
@@ -250,11 +291,11 @@ parse_floc_acknowledgement_packet(
 #endif // ACK_DATA
 
     // Setup DeviceAction
-    da->flocType = FLOC_ACK_TYPE;
+    da.flocType = FLOC_ACK_TYPE;
 
 #ifdef ACK_DATA // ACK_DATA
-    da->dataSize = dataSize;
-    da->data = data;
+    da.dataSize = dataSize;
+    da.data = data;
 #endif //ACK_DATA
 
 #ifdef DEBUG_ON // DEBUG_ON
@@ -270,8 +311,7 @@ void
 parse_floc_response_packet(
     FlocHeader_t* floc_header,
     ResponsePacket_t* pkt,
-    uint8_t size,
-    DeviceAction_t* da
+    uint8_t size
 ){
     if (size < sizeof(ResponseHeader_t)) {
     #ifdef DEBUG_ON // DEBUG_ON
@@ -299,9 +339,9 @@ parse_floc_response_packet(
     uint8_t* responseData = pkt->data;
 
     // Setup DeviceAction_t struct
-    da->flocType = FLOC_RESPONSE_TYPE;
-    da->data = responseData;
-    da->dataSize = dataSize;
+    da.flocType = FLOC_RESPONSE_TYPE;
+    da.data = responseData;
+    da.dataSize = dataSize;
 
 #ifdef DEBUG_ON // DEBUG_ON
     Serial.printf("Response Packet Received:\r\n");
@@ -313,8 +353,7 @@ parse_floc_response_packet(
 void
 floc_broadcast_received(
     uint8_t* broadcastBuffer,
-    uint8_t size,
-    DeviceAction_t* da
+    uint8_t size
 ){
     if (size < sizeof(FlocHeader_t)) {
         // Packet is too small to contain a valid header
@@ -351,32 +390,32 @@ floc_broadcast_received(
 #endif // DEBUG_ON
 
     // Setup DeviceAction
-    da->srcAddr = src_addr;
+    da.srcAddr = src_addr;
 
     // Determine the type of the packet
     switch (type) {
         case FLOC_DATA_TYPE:
         {
             DataPacket_t* data_pkt = (DataPacket_t*) &pkt->payload;
-            parse_floc_data_packet(header, data_pkt, size - FLOC_HEADER_COMMON_SIZE, da);
+            parse_floc_data_packet(header, data_pkt, size - FLOC_HEADER_COMMON_SIZE);
             break;
         }
         case FLOC_COMMAND_TYPE:
         {
             CommandPacket_t* cmd_pkt = (CommandPacket_t*)&pkt->payload;
-            parse_floc_command_packet(header, cmd_pkt, size - FLOC_HEADER_COMMON_SIZE, da);
+            parse_floc_command_packet(header, cmd_pkt, size - FLOC_HEADER_COMMON_SIZE);
             break;
         }
         case FLOC_ACK_TYPE:
         {
             AckPacket_t* ack_pkt = (AckPacket_t*)&pkt->payload;
-            parse_floc_acknowledgement_packet(header, ack_pkt, size - FLOC_HEADER_COMMON_SIZE, da);
+            parse_floc_acknowledgement_packet(header, ack_pkt, size - FLOC_HEADER_COMMON_SIZE);
             break;
         }
         case FLOC_RESPONSE_TYPE:
         {
             ResponsePacket_t* resp_pkt = (ResponsePacket_t*)&pkt->payload;
-            parse_floc_response_packet(header, resp_pkt, size - FLOC_HEADER_COMMON_SIZE, da);
+            parse_floc_response_packet(header, resp_pkt, size - FLOC_HEADER_COMMON_SIZE);
             break;
         }
         default:
@@ -391,8 +430,7 @@ floc_broadcast_received(
 void
 floc_unicast_received(
     uint8_t* unicastBuffer,
-    uint8_t size,
-    DeviceAction_t* da
+    uint8_t size
 ){
     // May not be used
 }

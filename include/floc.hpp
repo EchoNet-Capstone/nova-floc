@@ -2,9 +2,6 @@
 
 #include <stdint.h>
 
-#include <device_actions.hpp>
-#include <get_set_macros.hpp>
-
 // -- Defaults ---
 #define TTL_START 3
 
@@ -220,8 +217,50 @@ SerialFlocPacket_t {
 
 #define SERIAL_FLOC_ACTUAL_SIZE(pkt)        (SERIAL_FLOC_HEADER_SIZE + (pkt)->header.size)
 
-GET_SET_FUNC_PROTO(uint16_t, network_id)
-GET_SET_FUNC_PROTO(uint16_t, device_id)
+// ----- Device Action -----
+struct
+DeviceAction_t {
+    uint8_t modemRespType;
+    uint16_t srcAddr;
+    uint8_t flocType;
+    uint8_t commandType;
+    uint8_t dataSize;
+    uint8_t* data;
+};
+
+extern DeviceAction_t da;
+
+void
+init_da(
+    void
+);
+
+extern void
+act_upon(
+    void
+);
+
+// ----- FLOC Protocol Functions -----
+
+uint16_t
+get_network_id(
+    void
+);
+
+void
+set_network_id(
+    uint16_t new_network_id
+);
+
+uint16_t
+get_device_id(
+    void
+);
+
+void
+set_device_id(
+    uint16_t new_device_id
+);
 
 uint8_t
 use_packet_id(
@@ -256,42 +295,32 @@ floc_error_send(
 void
 parse_floc_command_packet(
     FlocHeader_t* floc_header,
-    CommandPacket_t* pkt, uint8_t size, DeviceAction_t* da
+    CommandPacket_t* pkt,
+    uint8_t size
 );
 
 void
 parse_floc_acknowledgement_packet(
     FlocHeader_t* floc_header,
     AckPacket_t* pkt,
-    uint8_t size,
-    DeviceAction_t* da
+    uint8_t size
 );
 
 void
 parse_floc_response_packet(
     FlocHeader_t* floc_header,
     ResponsePacket_t* pkt,
-    uint8_t size,
-    DeviceAction_t* da
+    uint8_t size
 );
 
 void
 floc_broadcast_received(
     uint8_t* broadcastBuffer,
-    uint8_t size,
-    DeviceAction_t* da
+    uint8_t size
 );
 
 void
 floc_unicast_received(
     uint8_t* unicastBuffer,
-    uint8_t size,
-    DeviceAction_t* da
-);
-
-void
-packet_received_nest(
-    uint8_t* packetBuffer,
-    uint8_t size,
-    DeviceAction_t* da
+    uint8_t size
 );
