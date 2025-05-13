@@ -361,6 +361,12 @@ floc_broadcast_received(
     // Setup DeviceAction
     da->srcAddr = src_addr;
 
+    if (dest_addr != get_device_id()) {
+        // Packet is not meant for this device
+        flocBuffer.addPacket(*pkt, 1);
+        return;
+    }
+
     // Determine the type of the packet
     switch (type) {
         case FLOC_DATA_TYPE:
