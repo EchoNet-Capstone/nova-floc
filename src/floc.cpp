@@ -14,10 +14,9 @@
 #endif // ARDUINO
 
 #include <nmv3_api.hpp>
-#include <buffer.hpp>
-#include "activity_period.hpp"
 
 #include "floc.hpp"
+#include "floc_buffer.hpp"
 #include "floc_utils.hpp"
 
 uint8_t packet_id = 0;
@@ -398,7 +397,7 @@ floc_broadcast_received(
 #endif // DEBUG_ON
 
     // Setup DeviceAction
-    da->srcAddr = src_addr;
+    da.srcAddr = src_addr;
 
     if (dest_addr != get_device_id()) {
         // Packet is not meant for this device
