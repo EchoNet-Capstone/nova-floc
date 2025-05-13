@@ -12,6 +12,8 @@
 #include <globals.hpp>
 #include <utils.hpp>
 #include <nmv3_api.hpp>
+#include <buffer.hpp>
+#include "activity_period.hpp"
 
 #include "floc.hpp"
 
@@ -56,7 +58,8 @@ floc_acknowledgement_send(
 
     packet.payload.ack.header.ack_pid = ack_pid;
 
-    broadcast(MODEM_SERIAL_CONNECTION, (char*)&packet, ACK_PACKET_ACTUAL_SIZE(&packet));
+    flocBuffer.addPacket(packet, 0);
+    // broadcast(MODEM_SERIAL_CONNECTION, (char*)&packet, ACK_PACKET_ACTUAL_SIZE(&packet));
 }
 
 void
@@ -81,7 +84,9 @@ floc_status_send(
     memcpy(packet.payload.response.data, &node_addr, sizeof(node_addr));
     memcpy(packet.payload.response.data + sizeof(node_addr), &supply_voltage, sizeof(supply_voltage));
 
-    broadcast(MODEM_SERIAL_CONNECTION, (char*)(&packet), RESPONSE_PACKET_ACTUAL_SIZE(&packet));
+    flocBuffer.addPacket(packet, 0);
+
+    // broadcast(MODEM_SERIAL_CONNECTION, (char*)(&packet), RESPONSE_PACKET_ACTUAL_SIZE(&packet));
 }
 
 void
@@ -102,7 +107,8 @@ floc_error_send(
     packet.payload.response.header.request_pid = err_pid;
     packet.payload.response.header.size = 0;
 
-    broadcast(MODEM_SERIAL_CONNECTION, (char*)(&packet), RESPONSE_PACKET_ACTUAL_SIZE(&packet));
+    flocBuffer.addPacket(packet, 0);
+    //broadcast(MODEM_SERIAL_CONNECTION, (char*)(&packet), RESPONSE_PACKET_ACTUAL_SIZE(&packet));
 }
 
 void
@@ -235,6 +241,8 @@ parse_floc_acknowledgement_packet(
     AckHeader_t *ackHeader = (AckHeader_t*)&pkt->header;
 
     uint8_t ack_pid = ackHeader->ack_pid;
+
+    flocBuffer.add_ackID(ack_pid);
 
 #ifdef ACK_DATA // ACK_DATA
     uint8_t dataSize = ackHeader->size;
