@@ -56,8 +56,8 @@ SerialFlocPacketType_e: uint8_t {
 // --- FLOC Packet Headers ---
 typedef struct
 FlocHeader_t {
-    uint8_t ttl : FLOC_TTL_SIZE;
     FlocPacketType_e type : FLOC_TYPE_SIZE;
+    uint8_t ttl : FLOC_TTL_SIZE;
     uint16_t nid: FLOC_NID_SIZE;
     uint8_t res : FLOC_RES_SIZE;
     uint8_t pid : FLOC_PID_SIZE;

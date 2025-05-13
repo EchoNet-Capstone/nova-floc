@@ -54,9 +54,22 @@ FLOCBufferManager::addPacket(
 
     // if not a retransmission, check the type of the packet
     if(packet.header.type == FLOC_COMMAND_TYPE) {
+
+        
         commandBuffer.push(packet);
+
+    #ifdef DEBUG_ON // DEBUG_ON
+        Serial.printf("added to the command buffer\r\n");
+    #endif // DEBUG_ON
+
+
     } else if (packet.header.type == FLOC_RESPONSE_TYPE) {
         responseBuffer.push(packet);
+
+    #ifdef DEBUG_ON // DEBUG_ON
+        Serial.printf("Added to the response buffer\r\n");
+    #endif // DEBUG_ON
+
     } else {
     #ifdef DEBUG_ON // DEBUG_ON
         Serial.printf("Invalid packet type for command buffer\n");
