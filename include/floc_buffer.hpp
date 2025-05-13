@@ -1,11 +1,10 @@
 #pragma once
 
 #include <stdint.h>
-
-#include <floc.hpp>
-
 #include <map>
 #include <queue>
+
+#include "floc.hpp"
 
 struct ping_device {
     uint16_t devAdd;
