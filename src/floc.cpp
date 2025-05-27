@@ -18,6 +18,7 @@
 #include "floc.hpp"
 #include "floc_buffer.hpp"
 #include "floc_utils.hpp"
+#include "bloomfilter.hpp"
 
 uint8_t packet_id = 0;
 
@@ -100,7 +101,7 @@ floc_acknowledgement_send(
 
     packet.payload.ack.header.ack_pid = ack_pid;
 
-    flocBuffer.addPacket(packet, 0);
+    flocBuffer.addPacket(packet);
     // broadcast(MODEM_SERIAL_CONNECTION, (char*)&packet, ACK_PACKET_ACTUAL_SIZE(&packet));
 }
 
@@ -126,7 +127,7 @@ floc_status_send(
     memcpy(packet.payload.response.data, &node_addr, sizeof(node_addr));
     memcpy(packet.payload.response.data + sizeof(node_addr), &supply_voltage, sizeof(supply_voltage));
 
-    flocBuffer.addPacket(packet, 0);
+    flocBuffer.addPacket(packet);
 
     // broadcast(MODEM_SERIAL_CONNECTION, (char*)(&packet), RESPONSE_PACKET_ACTUAL_SIZE(&packet));
 }
@@ -149,7 +150,7 @@ floc_error_send(
     packet.payload.response.header.request_pid = err_pid;
     packet.payload.response.header.size = 0;
 
-    flocBuffer.addPacket(packet, 0);
+    flocBuffer.addPacket(packet);
     //broadcast(MODEM_SERIAL_CONNECTION, (char*)(&packet), RESPONSE_PACKET_ACTUAL_SIZE(&packet));
 }
 
@@ -163,9 +164,9 @@ parse_floc_data_packet(
     Serial.printf("Data packet received...\r\n");
 #endif // DEBUG_ON
 
-    if (size < sizeof(FlocHeader_t) + sizeof(DataHeader_t)) {
+    if (size < sizeof(DataHeader_t)) {
     #ifdef DEBUG_ON // DEBUG_ON
-        Serial.printf("Invalid Command Packet: Too small\r\n");
+        Serial.printf("Invalid Data Packet: Too small\r\n");
     #endif // DEBUG_ON
 
         return;
@@ -235,11 +236,7 @@ parse_floc_command_packet(
     // Extract command data
     uint8_t* data = pkt->data;
 
-    // Setup DeviceAction
-    da.flocType = FLOC_COMMAND_TYPE;
-    da.data = data;
-    da.dataSize = dataSize;
-
+    bool valid_cmd = true;
     // Handle the command based on the type
     switch (commandType) {
         case COMMAND_TYPE_1:
@@ -259,7 +256,16 @@ parse_floc_command_packet(
             Serial.printf("Unknown FLOC Command Type! Type: [%01u]\r\n", commandType);
         #endif // DEBUG_ON
 
+            valid_cmd = false;
+
             break;
+    }
+
+    if (valid_cmd) {
+        // Setup DeviceAction
+        da.flocType = FLOC_COMMAND_TYPE;
+        da.data = data;
+        da.dataSize = dataSize;
     }
 }
 
@@ -384,24 +390,40 @@ floc_broadcast_received(
     uint16_t dest_addr = ntohs(header->dest_addr);
     uint16_t src_addr = ntohs(header->src_addr);
 
-#ifdef DEBUG_ON // DEBUG_ON
-    Serial.printf(
-        "FLOC Packet Header\r\n\tTTL:%d\r\n\tType: %d\r\n\tNID: %d\r\n\tPID: %d\r\n\tDST: %d\r\n\tSRC: %d\r\n",
-        ttl,
-        type,
-        nid,
-        pid,
-        dest_addr,
-        src_addr);
-    printBufferContents((uint8_t*) pkt, size);
-#endif // DEBUG_ON
+
+    if (bloom_check_packet(pid, dest_addr, src_addr)) {
+    #ifdef DEBUG_ON
+        Serial.printf("Duplicate packet (raw hash), dropping.\n");
+    #endif
+        return;
+    }
+
+      
+
+
+    // adds timeout
+    maybe_reset_bloom_filter();
+    bloom_add_packet(pid, dest_addr, src_addr);
+
+// #ifdef DEBUG_ON // DEBUG_ON
+//     Serial.printf(
+//         "FLOC Packet Header\r\n\tTTL:%d\r\n\tType: %d\r\n\tNID: %d\r\n\tPID: %d\r\n\tDST: %d\r\n\tSRC: %d\r\n",
+//         ttl,
+//         type,
+//         nid,
+//         pid,
+//         dest_addr,
+//         src_addr);
+//     printBufferContents((uint8_t*) pkt, size);
+// #endif // DEBUG_ON
 
     // Setup DeviceAction
     da.srcAddr = src_addr;
 
-    if (dest_addr != get_device_id()) {
-        // Packet is not meant for this device
-        flocBuffer.addPacket(*pkt, 1);
+      if (src_addr == get_device_id()){
+        #ifdef DEBUG_ON // DEBUG_ON
+            Serial.printf("Recv retrans from self, dropping\r\n");
+        #endif // DEBUG_ON
         return;
     }
 
@@ -438,6 +460,12 @@ floc_broadcast_received(
 
             break;
     }
+
+    if ((da.flocType >= FLOC_DATA_TYPE && da.flocType <= FLOC_RESPONSE_TYPE) ) // Is a valid packet
+    {
+        flocBuffer.addPacket(*pkt);
+    }
+
 }
 
 void

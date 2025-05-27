@@ -39,14 +39,21 @@ FLOCBufferManager flocBuffer;
 
 void
 FLOCBufferManager::addPacket(
-    const FlocPacket_t& packet,
-    bool retrans
+    const FlocPacket_t& packet
 ){
     // identify if the packet is a retransmission
-    if (retrans) {
+    if (packet.header.dest_addr != get_device_id()) {
+        if (retransmissionBuffer.size() > maxSendBuffer){
+
+    #ifdef DEBUG_ON // DEBUG_ON
+       Serial.printf("retransmission buffer to big \r\n");
+    #endif // DEBUG_ON
+            return;
+        }
         retransmissionBuffer.push(packet);
     #ifdef DEBUG_ON // DEBUG_ON
-        Serial.printf("Packet added to retransmission buffer\n");
+        Serial.printf("Packet added to retransmission buffer\r\n");
+        Serial.printf("Size of retransmission buffer: %i\r\n", retransmissionBuffer.size());
     #endif // DEBUG_ON
 
         return;
@@ -86,24 +93,19 @@ FLOCBufferManager::queuehandler(
         ping_handler();
     }
 
-    if(!retransmissionBuffer.empty()) {
     #ifdef DEBUG_ON // DEBUG_ON
-        Serial.printf("Retransmission buffer is not empty\n");
+        flocBuffer.printall();
     #endif // DEBUG_ON
+
+    if(!retransmissionBuffer.empty()) {
 
         retransmission_handler();
         return 1;
     } else if (!responseBuffer.empty()) {
-    #ifdef DEBUG_ON // DEBUG_ON
-        Serial.printf("Response buffer is not empty\n");
-    #endif // DEBUG_ON
 
         response_handler();
         return 2;
     } else if (!commandBuffer.empty()) {
-    #ifdef DEBUG_ON // DEBUG_ON
-        Serial.printf("Command buffer is not empty\n");
-    #endif // DEBUG_ON
 
         command_handler();
         return 3;
@@ -151,7 +153,7 @@ FLOCBufferManager::ping_handler(
         if (checkackID(dev.devAdd)) {
             memset(&dev, 0, sizeof(dev));
         #ifdef DEBUG_ON
-            printf("Ping ID %d found and removed\n", dev.devAdd);
+            Serial.printf("Ping ID %d found and removed\n", dev.devAdd);
         #endif
         
             return 1; // No need to ping if ACK received
@@ -192,13 +194,26 @@ FLOCBufferManager::retransmission_handler(
         Serial.printf("Ack ID %d found and removed\n", packet_id);
     #endif // DEBUG_ON
 
-        commandBuffer.pop(); // Remove from buffer
+        retransmissionBuffer.pop(); // Remove from buffer
         return 1;
     }
 
     // send packet
     // FIX THE SIZE ASPECT
-    broadcast((char*)&packet, DATA_PACKET_ACTUAL_SIZE(&packet));
+
+    if (packet.header.ttl > 1){
+        packet.header.ttl--;
+        #ifdef DEBUG_ON // DEBUG_ON
+            Serial.printf("[FLOCBUFF] TTL Decremented to %i\r\n", packet.header.ttl);
+        #endif // DEBUG_ON
+
+
+        broadcast((char*)&packet, DATA_PACKET_ACTUAL_SIZE(&packet));
+
+        #ifdef DEBUG_ON // DEBUG_ON
+            Serial.printf("[FLOCBUFF] Retransmitting %i\r\n", packet_id);
+        #endif // DEBUG_ON
+    } 
 
     retransmissionBuffer.pop(); // Remove from buffer
     return 0;
@@ -218,7 +233,7 @@ FLOCBufferManager::response_handler(
         Serial.printf("Ack ID %d found and removed\n", packet_id);
     #endif // DEBUG_ON
 
-        commandBuffer.pop(); // Remove from buffer
+        responseBuffer.pop(); // Remove from buffer
         return 1;
     }
     // send packet
@@ -310,5 +325,138 @@ FLOCBufferManager::add_pinglist(
     pingDevice[index].pingCount = 0;
 }
 
+#include "debug.hpp"
 
+// Debug help
+void 
+FLOCBufferManager::printRetransmissionBuffer(
+    void
+){
+    print_stack_trace();
+    Serial.printf("Retrans Buffer (%d):\n", retransmissionBuffer.size());
+    if (retransmissionBuffer.empty()) {
+        Serial.printf("  (empty)\n");
+        return;
+    }
+    
+    std::queue<FlocPacket_t> temp = retransmissionBuffer;
+    int count = 0;
+    while (!temp.empty() && count < 5) {
+        FlocPacket_t packet = temp.front();
+        Serial.printf("  [%d] PID:%d TTL:%d\n", count, packet.header.pid, packet.header.ttl);
+        Serial.printf("      Src:%d Dst:%d\n", packet.header.src_addr, packet.header.dest_addr);
+        temp.pop();
+        count++;
+    }
+    if (retransmissionBuffer.size() > 5) {
+        Serial.printf("  ...+%d more\n", retransmissionBuffer.size() - 5);
+    }
+}
 
+void 
+FLOCBufferManager::printResponseBuffer(
+    void
+){
+    Serial.printf("Response Buffer (%d):\n", responseBuffer.size());
+    if (responseBuffer.empty()) {
+        Serial.printf("  (empty)\n");
+        return;
+    }
+    
+    std::queue<FlocPacket_t> temp = responseBuffer;
+    int count = 0;
+    while (!temp.empty() && count < 5) {
+        FlocPacket_t packet = temp.front();
+        Serial.printf("  [%d] PID:%d Type:%d\n", count, packet.header.pid, packet.header.type);
+        Serial.printf("      Src:%d Dst:%d\n", packet.header.src_addr, packet.header.dest_addr);
+        temp.pop();
+        count++;
+    }
+    if (responseBuffer.size() > 5) {
+        Serial.printf("  ...+%d more\n", responseBuffer.size() - 5);
+    }
+}
+
+void 
+FLOCBufferManager::printCommandBuffer(
+    void
+){
+    Serial.printf("Command Buffer (%d):\n", commandBuffer.size());
+    if (commandBuffer.empty()) {
+        Serial.printf("  (empty)\n");
+        return;
+    }
+    
+    std::queue<FlocPacket_t> temp = commandBuffer;
+    int count = 0;
+    while (!temp.empty() && count < 5) {
+        FlocPacket_t packet = temp.front();
+        Serial.printf("  [%d] PID:%d Type:%d\n", count, packet.header.pid, packet.header.type);
+        Serial.printf("      Src:%d Dst:%d\n", packet.header.src_addr, packet.header.dest_addr);
+        
+        // Check transmission count
+        auto it = transmissionCounts.find(packet.header.pid);
+        if (it != transmissionCounts.end()) {
+            Serial.printf("      TX:%d\n", it->second);
+        }
+        
+        temp.pop();
+        count++;
+    }
+    if (commandBuffer.size() > 5) {
+        Serial.printf("  ...+%d more\n", commandBuffer.size() - 5);
+    }
+}
+
+void 
+FLOCBufferManager::printPingDevices(
+    void
+){
+    Serial.printf("Ping Devices:\n");
+    bool found = false;
+    for (int i = 0; i < 3; i++) {
+        if (pingDevice[i].devAdd != 0) {
+            Serial.printf("  [%d] Dev:%d Mod:%d\n", i, pingDevice[i].devAdd, pingDevice[i].modAdd);
+            Serial.printf("      Count:%d\n", pingDevice[i].pingCount);
+            found = true;
+        }
+    }
+    if (!found) {
+        Serial.printf("  (none)\n");
+    }
+}
+
+void 
+FLOCBufferManager::printAckIDs(
+    void
+){
+    Serial.printf("ACK IDs (%d):\n", ackIDs.size());
+    if (ackIDs.empty()) {
+        Serial.printf("  (none)\n");
+        return;
+    }
+    
+    int count = 0;
+    for (const auto& pair : ackIDs) {
+        if (count < 5) {
+            Serial.printf("  ID:%d\n", pair.first);
+        }
+        count++;
+    }
+    if (ackIDs.size() > 5) {
+        Serial.printf("  ...+%d more\n", ackIDs.size() - 5);
+    }
+}
+
+void 
+FLOCBufferManager::printall(
+    void
+){
+    Serial.printf("=== FLOC Buffers ===\n");
+    printRetransmissionBuffer();
+    printResponseBuffer();
+    printCommandBuffer();
+    printPingDevices();
+    printAckIDs();
+    Serial.printf("==================\n");
+}

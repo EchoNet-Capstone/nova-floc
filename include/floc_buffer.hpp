@@ -17,8 +17,7 @@ FLOCBufferManager {
     public:
         void
         addPacket(
-            const FlocPacket_t& packet,
-            bool retrans = false
+            const FlocPacket_t& packet
         );
 
         int
@@ -75,6 +74,38 @@ FLOCBufferManager {
             void
         );
 
+        void
+        printall(
+            void
+        );
+
+        void
+        printRetransmissionBuffer(
+            void
+        );
+
+        void
+        printResponseBuffer(
+            void
+        );
+
+        void
+        printCommandBuffer(
+            void
+        );
+
+        void
+        printPingDevices(
+            void
+        );
+
+        void
+        printAckIDs(
+            void
+        );
+        
+        const int maxTransmissions = 5;
+        const int maxSendBuffer    = 5;
 
         ping_device pingDevice[3];;
 
@@ -86,7 +117,8 @@ FLOCBufferManager {
 
         std::map<uint8_t, int> ackIDs;
         std::map<uint8_t, int> transmissionCounts;
-        const int maxTransmissions = 5;
+        
+
 };
 
 extern FLOCBufferManager flocBuffer;
