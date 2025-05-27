@@ -116,13 +116,13 @@ ResponseHeader_t {
 typedef struct
 DataPacket_t {
     DataHeader_t header;
-    uint8_t data[MAX_DATA_DATA_SIZE];
+    uint8_t payload[MAX_DATA_DATA_SIZE];
 };
 
 typedef struct
 CommandPacket_t {
     CommandHeader_t header;
-    uint8_t data[MAX_COMMAND_DATA_SIZE];  // Statically allocated, maximum size
+    uint8_t payload[MAX_COMMAND_DATA_SIZE];  // Statically allocated, maximum size
 };
 
 typedef struct
@@ -130,14 +130,14 @@ AckPacket_t {
     AckHeader_t header;
     // If you add data to acks
 #ifdef ACK_DATA // ACK_DATA
-    uint8_t data[MAX_ACK_DATA_SIZE];
+    uint8_t payload[MAX_ACK_DATA_SIZE];
 #endif // ACK_DATA
 };
 
 typedef struct
 ResponsePacket_t {
     ResponseHeader_t header;
-    uint8_t data[MAX_RESPONSE_DATA_SIZE]; // Statically allocated, maximum size
+    uint8_t payload[MAX_RESPONSE_DATA_SIZE]; // Statically allocated, maximum size
 };
 
 typedef union
@@ -210,10 +210,10 @@ SerialFlocPacket_t {
 #define COMMAND_PACKET_ACTUAL_SIZE(pkt)     (FLOC_HEADER_COMMON_SIZE + COMMAND_HEADER_SIZE + (pkt)->payload.command.header.size)
 #define RESPONSE_PACKET_ACTUAL_SIZE(pkt)    (FLOC_HEADER_COMMON_SIZE + RESPONSE_HEADER_SIZE + (pkt)->payload.response.header.size)
 #ifdef ACK_DATA // ACK_DATA
-#define ACK_PACKET_ACTUAL_SIZE(pkt)         (FLOC_HEADER_COMMON_SIZE + ACK_HEADER_SIZE + pkt->payload.ack.header.size)
+#define ACK_PACKET_ACTUAL_SIZE(pkt)         (FLOC_HEADER_COMMON_SIZE + ACK_HEADER_SIZE + (pkt)->payload.ack.header.size)
 #else
 #define ACK_PACKET_ACTUAL_SIZE(pkt)         (FLOC_HEADER_COMMON_SIZE + ACK_HEADER_SIZE)
-#endif
+#endif // ACK_DATA
 
 #define SERIAL_FLOC_ACTUAL_SIZE(pkt)        (SERIAL_FLOC_HEADER_SIZE + (pkt)->header.size)
 

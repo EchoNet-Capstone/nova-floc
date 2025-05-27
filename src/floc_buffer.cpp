@@ -31,6 +31,7 @@
 #include <nmv3_api.hpp>
 
 #include "floc_buffer.hpp"
+#include "floc_utils.hpp"
 
 FLOCBufferManager flocBuffer;
 
@@ -38,6 +39,29 @@ void
 FLOCBufferManager::addPacket(
     const FlocPacket_t& packet
 ){
+    FlocPacket_t newPacket;
+    memset(&newPacket, 0, sizeof(newPacket));
+
+    memcpy(&(newPacket.header), &(packet.header), sizeof(FlocHeader_t));
+
+    size_t payload_max_size;
+    switch(packet.header.type){
+        case FLOC_DATA_TYPE:
+            payload_max_size = sizeof(DataPacket_t);
+            break;
+        case FLOC_COMMAND_TYPE:
+            payload_max_size = sizeof(CommandPacket_t);
+            break;
+        case FLOC_ACK_TYPE:
+            payload_max_size = sizeof(AckPacket_t);
+            break;
+        case FLOC_RESPONSE_TYPE:
+            payload_max_size = sizeof(ResponsePacket_t);
+            break;
+    }
+
+    memcpy(&(newPacket.payload), &(packet.payload), payload_max_size);
+
     // identify if the packet is a retransmission
     if (packet.header.dest_addr != get_device_id()) {
         if (retransmissionBuffer.size() > maxSendBuffer){
@@ -45,30 +69,30 @@ FLOCBufferManager::addPacket(
     #ifdef DEBUG_ON // DEBUG_ON
        Serial.printf("retransmission buffer to big \r\n");
     #endif // DEBUG_ON
+
             return;
         }
-        retransmissionBuffer.push(packet);
+
+    #ifdef DEBUG_ON // DEBUG_ON
+        Serial.printf("Adding packet to retransmission buffer\r\n");
+        printBufferContents((uint8_t*) &newPacket, sizeof(newPacket));
+    #endif // DEBUG_ON
+
+        retransmissionBuffer.push_back(newPacket);
     #ifdef DEBUG_ON // DEBUG_ON
         Serial.printf("Packet added to retransmission buffer\r\n");
         Serial.printf("Size of retransmission buffer: %i\r\n", retransmissionBuffer.size());
     #endif // DEBUG_ON
 
-        return;
-    }
-
-    // if not a retransmission, check the type of the packet
-    if(packet.header.type == FLOC_COMMAND_TYPE) {
-
-        
-        commandBuffer.push(packet);
+    } else if(newPacket.header.type == FLOC_COMMAND_TYPE) {
+        commandBuffer.push_back(newPacket);
 
     #ifdef DEBUG_ON // DEBUG_ON
         Serial.printf("added to the command buffer\r\n");
     #endif // DEBUG_ON
 
-
-    } else if (packet.header.type == FLOC_RESPONSE_TYPE) {
-        responseBuffer.push(packet);
+    } else if (newPacket.header.type == FLOC_RESPONSE_TYPE) {
+        responseBuffer.push_back(newPacket);
 
     #ifdef DEBUG_ON // DEBUG_ON
         Serial.printf("Added to the response buffer\r\n");
@@ -78,6 +102,7 @@ FLOCBufferManager::addPacket(
     #ifdef DEBUG_ON // DEBUG_ON
         Serial.printf("Invalid packet type for command buffer\n");
     #endif // DEBUG_ON
+
     }
 }
 
@@ -95,18 +120,19 @@ FLOCBufferManager::queuehandler(
     #endif // DEBUG_ON
 
     if(!retransmissionBuffer.empty()) {
-
         retransmission_handler();
+
         return 1;
     } else if (!responseBuffer.empty()) {
-
         response_handler();
+
         return 2;
     } else if (!commandBuffer.empty()) {
-
         command_handler();
+
         return 3;
     } else {
+
         return 0;
     }
 }
@@ -158,7 +184,7 @@ FLOCBufferManager::ping_handler(
 
         if (dev.pingCount < maxTransmissions) {
             dev.pingCount++;
-            ping(dev.devAdd);
+            ping(dev.modAdd);
         }
     }
 
@@ -170,9 +196,9 @@ FLOCBufferManager::check_pinglist(
     void
 ){
     if (pingDevice[0].devAdd != 0) {
-        return 1;
+        return true;
     } else {
-        return 0;
+        return false;
     }
 }
 
@@ -191,7 +217,8 @@ FLOCBufferManager::retransmission_handler(
         Serial.printf("Ack ID %d found and removed\n", packet_id);
     #endif // DEBUG_ON
 
-        retransmissionBuffer.pop(); // Remove from buffer
+        retransmissionBuffer.pop_front(); // Remove from buffer
+        
         return 1;
     }
 
@@ -204,15 +231,30 @@ FLOCBufferManager::retransmission_handler(
             Serial.printf("[FLOCBUFF] TTL Decremented to %i\r\n", packet.header.ttl);
         #endif // DEBUG_ON
 
-
-        broadcast((char*)&packet, DATA_PACKET_ACTUAL_SIZE(&packet));
+        uint8_t packet_size;
+        switch(packet.header.type){
+            case FLOC_DATA_TYPE:
+                packet_size = DATA_PACKET_ACTUAL_SIZE(&packet);
+                break;
+            case FLOC_COMMAND_TYPE:
+                packet_size = COMMAND_PACKET_ACTUAL_SIZE(&packet);
+                break;
+            case FLOC_ACK_TYPE:
+                packet_size = ACK_PACKET_ACTUAL_SIZE(&packet);
+                break;
+            case FLOC_RESPONSE_TYPE:
+                packet_size = RESPONSE_PACKET_ACTUAL_SIZE(&packet);
+                break;
+        }
 
         #ifdef DEBUG_ON // DEBUG_ON
             Serial.printf("[FLOCBUFF] Retransmitting %i\r\n", packet_id);
         #endif // DEBUG_ON
+
+        broadcast((uint8_t*) &packet, packet_size);
     } 
 
-    retransmissionBuffer.pop(); // Remove from buffer
+    retransmissionBuffer.pop_front(); // Remove from buffer
     return 0;
 }
 
@@ -230,12 +272,12 @@ FLOCBufferManager::response_handler(
         Serial.printf("Ack ID %d found and removed\n", packet_id);
     #endif // DEBUG_ON
 
-        responseBuffer.pop(); // Remove from buffer
+        responseBuffer.pop_front(); // Remove from buffer
         return 1;
     }
     // send packet
-    broadcast((char*)&packet, RESPONSE_PACKET_ACTUAL_SIZE(&packet));
-    responseBuffer.pop(); // Remove from buffer
+    broadcast((uint8_t*) &packet, RESPONSE_PACKET_ACTUAL_SIZE(&packet));
+    responseBuffer.pop_front(); // Remove from buffer
     return 0;
 }
 
@@ -254,7 +296,7 @@ FLOCBufferManager::command_handler(
         Serial.printf("Ack ID %d found and removed\n", packet_id);
     #endif // DEBUG_ON
 
-        commandBuffer.pop(); // Remove from buffer
+        commandBuffer.pop_front(); // Remove from buffer
         return 1;
     }
 
@@ -269,7 +311,7 @@ FLOCBufferManager::command_handler(
         Serial.printf("Max transmissions reached for packet ID %d\n", packet_id);
     #endif // DEBUG_ON
 
-        commandBuffer.pop(); // Remove from buffer
+        commandBuffer.pop_front(); // Remove from buffer
         transmissionCounts.erase(packet_id); // Remove from map
 
         floc_error_send(1, packet_id, packet.header.src_addr); // Send error packet
@@ -278,7 +320,7 @@ FLOCBufferManager::command_handler(
 
     transmissionCounts[packet_id]++; // Increment transmission count for this packet ID
 
-    broadcast((char*)&packet, COMMAND_PACKET_ACTUAL_SIZE(&packet));
+    broadcast((uint8_t*) &packet, COMMAND_PACKET_ACTUAL_SIZE(&packet));
     // send packet
     return 0;
 }
@@ -329,21 +371,18 @@ void
 FLOCBufferManager::printRetransmissionBuffer(
     void
 ){
-    print_stack_trace();
     Serial.printf("Retrans Buffer (%d):\n", retransmissionBuffer.size());
     if (retransmissionBuffer.empty()) {
         Serial.printf("  (empty)\n");
         return;
     }
     
-    std::queue<FlocPacket_t> temp = retransmissionBuffer;
     int count = 0;
-    while (!temp.empty() && count < 5) {
-        FlocPacket_t packet = temp.front();
-        Serial.printf("  [%d] PID:%d TTL:%d\n", count, packet.header.pid, packet.header.ttl);
-        Serial.printf("      Src:%d Dst:%d\n", packet.header.src_addr, packet.header.dest_addr);
-        temp.pop();
-        count++;
+    for (auto it = retransmissionBuffer.begin(); 
+         it != retransmissionBuffer.end() && count < 5; 
+         ++it, ++count) {
+        Serial.printf("  [%d] PID:%d TTL:%d\n", count, it->header.pid, it->header.ttl);
+        Serial.printf("      Src:%d Dst:%d\n", ntohs(it->header.src_addr), ntohs(it->header.dest_addr));
     }
     if (retransmissionBuffer.size() > 5) {
         Serial.printf("  ...+%d more\n", retransmissionBuffer.size() - 5);
@@ -360,14 +399,12 @@ FLOCBufferManager::printResponseBuffer(
         return;
     }
     
-    std::queue<FlocPacket_t> temp = responseBuffer;
     int count = 0;
-    while (!temp.empty() && count < 5) {
-        FlocPacket_t packet = temp.front();
-        Serial.printf("  [%d] PID:%d Type:%d\n", count, packet.header.pid, packet.header.type);
-        Serial.printf("      Src:%d Dst:%d\n", packet.header.src_addr, packet.header.dest_addr);
-        temp.pop();
-        count++;
+    for (auto it = responseBuffer.begin(); 
+         it != responseBuffer.end() && count < 5; 
+         ++it, ++count) {
+        Serial.printf("  [%d] PID:%d Type:%d\n", count, it->header.pid, it->header.type);
+        Serial.printf("      Src:%d Dst:%d\n", ntohs(it->header.src_addr), ntohs(it->header.dest_addr));
     }
     if (responseBuffer.size() > 5) {
         Serial.printf("  ...+%d more\n", responseBuffer.size() - 5);
@@ -384,21 +421,18 @@ FLOCBufferManager::printCommandBuffer(
         return;
     }
     
-    std::queue<FlocPacket_t> temp = commandBuffer;
     int count = 0;
-    while (!temp.empty() && count < 5) {
-        FlocPacket_t packet = temp.front();
-        Serial.printf("  [%d] PID:%d Type:%d\n", count, packet.header.pid, packet.header.type);
-        Serial.printf("      Src:%d Dst:%d\n", packet.header.src_addr, packet.header.dest_addr);
+    for (auto it = commandBuffer.begin(); 
+         it != commandBuffer.end() && count < 5; 
+         ++it, ++count) {
+        Serial.printf("  [%d] PID:%d Type:%d\n", count, it->header.pid, it->header.type);
+        Serial.printf("      Src:%d Dst:%d\n", ntohs(it->header.src_addr), ntohs(it->header.dest_addr));
         
         // Check transmission count
-        auto it = transmissionCounts.find(packet.header.pid);
-        if (it != transmissionCounts.end()) {
-            Serial.printf("      TX:%d\n", it->second);
+        auto tx_it = transmissionCounts.find(it->header.pid);
+        if (tx_it != transmissionCounts.end()) {
+            Serial.printf("      TX:%d\n", tx_it->second);
         }
-        
-        temp.pop();
-        count++;
     }
     if (commandBuffer.size() > 5) {
         Serial.printf("  ...+%d more\n", commandBuffer.size() - 5);

@@ -109,11 +109,11 @@ FLOCBufferManager {
 
         ping_device pingDevice[3];;
 
-        std::queue<FlocPacket_t> commandBuffer;
-        std::queue<FlocPacket_t> responseBuffer;
+        std::deque<FlocPacket_t> commandBuffer;
+        std::deque<FlocPacket_t> responseBuffer;
 
         // this is going to be different
-        std::queue<FlocPacket_t> retransmissionBuffer;
+        std::deque<FlocPacket_t> retransmissionBuffer;
 
         std::map<uint8_t, int> ackIDs;
         std::map<uint8_t, int> transmissionCounts;

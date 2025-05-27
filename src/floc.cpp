@@ -121,8 +121,8 @@ floc_status_send(
     packet.payload.response.header.size = sizeof(node_addr) + sizeof(supply_voltage);
 
     // Copy the status string into the response data
-    memcpy(packet.payload.response.data, &node_addr, sizeof(node_addr));
-    memcpy(packet.payload.response.data + sizeof(node_addr), &supply_voltage, sizeof(supply_voltage));
+    memcpy(packet.payload.response.payload, &node_addr, sizeof(node_addr));
+    memcpy(packet.payload.response.payload + sizeof(node_addr), &supply_voltage, sizeof(supply_voltage));
 
     flocBuffer.addPacket(packet);
 
@@ -183,7 +183,7 @@ parse_floc_data_packet(
     }
 
     // Extract data
-    uint8_t* data = pkt->data;
+    uint8_t* data = pkt->payload;
 
     // Setup DeviceAction
     da.flocType = FLOC_DATA_TYPE;
@@ -231,7 +231,7 @@ parse_floc_command_packet(
     }
 
     // Extract command data
-    uint8_t* data = pkt->data;
+    uint8_t* data = pkt->payload;
 
     bool valid_cmd = true;
     // Handle the command based on the type
@@ -297,7 +297,7 @@ parse_floc_acknowledgement_packet(
 
     }
 
-    uint8_t* data = pkt->data;
+    uint8_t* data = pkt->payload;
 #endif // ACK_DATA
 
     // Setup DeviceAction
@@ -346,7 +346,7 @@ parse_floc_response_packet(
     }
 
     // Extract response data
-    uint8_t* responseData = pkt->data;
+    uint8_t* responseData = pkt->payload;
 
     // Setup DeviceAction_t struct
     da.flocType = FLOC_RESPONSE_TYPE;
@@ -387,7 +387,6 @@ floc_broadcast_received(
     uint16_t dest_addr = ntohs(header->dest_addr);
     uint16_t src_addr = ntohs(header->src_addr);
 
-
     if (bloom_check_packet(pid, dest_addr, src_addr)) {
     #ifdef DEBUG_ON
         Serial.printf("Duplicate packet (raw hash), dropping.\n");
@@ -395,24 +394,20 @@ floc_broadcast_received(
         return;
     }
 
-      
-
-
     // adds timeout
     maybe_reset_bloom_filter();
     bloom_add_packet(pid, dest_addr, src_addr);
 
-// #ifdef DEBUG_ON // DEBUG_ON
-//     Serial.printf(
-//         "FLOC Packet Header\r\n\tTTL:%d\r\n\tType: %d\r\n\tNID: %d\r\n\tPID: %d\r\n\tDST: %d\r\n\tSRC: %d\r\n",
-//         ttl,
-//         type,
-//         nid,
-//         pid,
-//         dest_addr,
-//         src_addr);
-//     printBufferContents((uint8_t*) pkt, size);
-// #endif // DEBUG_ON
+#ifdef DEBUG_ON // DEBUG_ON
+    Serial.printf("FLOC Packet Header\r\n");
+    Serial.printf("\tTTL:%d\r\n", ttl);
+    Serial.printf("\tType: %d\r\n", type);
+    Serial.printf("\tNID: %d\r\n", nid);
+    Serial.printf("\tPID: %d\r\n", pid);
+    Serial.printf("\tDST: %d\r\n", dest_addr);
+    Serial.printf("\tSRC: %d\r\n", src_addr);
+    printBufferContents((uint8_t*) pkt, size);
+#endif // DEBUG_ON
 
     // Setup DeviceAction
     da.srcAddr = src_addr;
@@ -458,7 +453,7 @@ floc_broadcast_received(
             break;
     }
 
-    if ((da.flocType >= FLOC_DATA_TYPE && da.flocType <= FLOC_RESPONSE_TYPE) ) // Is a valid packet
+    if (da.flocType >= FLOC_DATA_TYPE && da.flocType <= FLOC_RESPONSE_TYPE) // Is a valid packet
     {
         flocBuffer.addPacket(*pkt);
     }
