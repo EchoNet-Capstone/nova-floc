@@ -1,6 +1,5 @@
 #include <stdint.h>
 
-#ifdef ARDUINO // ARDUINO
 #include <Arduino.h>
 
 #ifdef min // min
@@ -10,8 +9,6 @@
 #ifdef max //min
 #undef max
 #endif //min
-
-#endif // ARDUINO
 
 #include <nmv3_api.hpp>
 

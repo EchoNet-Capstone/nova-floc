@@ -13,7 +13,6 @@
  *  - if no ack after 5 transmissions, rm from buffer
  */
 
-#ifdef ARDUINO // ARDUINO
 #include <Arduino.h>
 
 #ifdef min // min
@@ -23,8 +22,6 @@
 #ifdef max //min
 #undef max
 #endif //min
-
-#endif // ARDUINO
 
 #include <stdint.h>
 #include <string.h>

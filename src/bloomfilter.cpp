@@ -12,8 +12,17 @@
  * Also if you want to increase accuracy you can reset the bloom filter
  * every 5-10 minutes?
  * */
+#include <Arduino.h>
+
+#ifdef min // min
+#undef min
+#endif //min
+
+#ifdef max //min
+#undef max
+#endif //min
+
 #include "bloomfilter.hpp"
-#include "globals.hpp"
 #include "floc.hpp"
 
 #define BLOOM_FILTER_BITS 64
