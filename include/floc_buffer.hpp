@@ -35,7 +35,7 @@ FLOCBufferManager {
             uint16_t devAdd
         );
 
-        int
+        void
         queueHandler(
             void
         );

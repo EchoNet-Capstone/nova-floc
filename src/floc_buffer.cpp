@@ -418,7 +418,7 @@ FLOCBufferManager::commandHandler(
 }
 
 // blocking check call
-int
+void
 FLOCBufferManager::queueHandler(
     void
 ){
@@ -438,17 +438,16 @@ FLOCBufferManager::queueHandler(
     if(!retransmissionBuffer.empty()) {
         retransmissionHandler();
 
-        return 1;
+        return;
     } else if (!responseBuffer.empty()) {
         responseHandler();
 
-        return 2;
+        return;
     } else if (!commandBuffer.empty()) {
         commandHandler();
 
-        return 3;
+        return;
     } else {
-
-        return 0;
+        /* Do Nothing */
     }
 }
