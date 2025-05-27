@@ -223,6 +223,8 @@ FLOCBufferManager::retransmission_handler(
             Serial.printf("[FLOCBUFF] Retransmitting %i\r\n", packet.header.pid);
         #endif // DEBUG_ON
 
+        packet.header.last_hop_addr = get_device_id();
+
         broadcast((uint8_t*) &packet, packet_size);
     } 
 

@@ -81,6 +81,30 @@ floc_status_query(
 }
 
 void
+floc_build_header(
+    FlocPacket_t* packet,
+    uint8_t ttl,
+    FlocPacketType_e type,
+    uint16_t dest_addr,
+    bool err_packet
+){
+    memset(packet, 0, sizeof(packet));
+
+    packet->header.ttl = ttl;
+
+    packet->header.type = type;
+
+    packet->header.nid = htons(get_network_id());
+
+    packet->header.pid = use_packet_id();
+    packet->header.res = (uint8_t) err_packet;
+
+    packet->header.dest_addr = htons(dest_addr);
+    packet->header.src_addr = htons(get_device_id());
+    packet->header.last_hop_addr = htons(get_device_id());
+}
+
+void
 floc_acknowledgement_send(
     uint8_t ttl,
     uint8_t ack_pid,
@@ -88,13 +112,8 @@ floc_acknowledgement_send(
 ){
     // Construct the packet
     FlocPacket_t packet;
-    packet.header.ttl = ttl;
-    packet.header.type = FLOC_ACK_TYPE;
-    packet.header.nid = htons(get_network_id());
-    packet.header.pid = use_packet_id();
-    packet.header.res = 0;
-    packet.header.dest_addr = htons(dest_addr);
-    packet.header.src_addr = htons(get_device_id());
+
+    floc_build_header(&packet, ttl, FLOC_ACK_TYPE, dest_addr, false);
 
     packet.payload.ack.header.ack_pid = ack_pid;
 
@@ -109,13 +128,8 @@ floc_status_send(
 ){
     // Construct the packet
     FlocPacket_t packet;
-    packet.header.ttl = TTL_START;
-    packet.header.type = FLOC_RESPONSE_TYPE;
-    packet.header.nid = htons(get_network_id());
-    packet.header.pid = use_packet_id();
-    packet.header.res = 0;
-    packet.header.dest_addr = htons(status_response_dest_addr);
-    packet.header.src_addr = htons(get_device_id());
+
+    floc_build_header(&packet, TTL_START, FLOC_RESPONSE_TYPE, status_response_dest_addr, false);
 
     packet.payload.response.header.request_pid = packet.header.pid;
     packet.payload.response.header.size = sizeof(node_addr) + sizeof(supply_voltage);
@@ -136,13 +150,8 @@ floc_error_send(
     uint8_t err_dst_addr
 ){
     FlocPacket_t packet;
-    packet.header.ttl = TTL_START;
-    packet.header.type = FLOC_RESPONSE_TYPE;
-    packet.header.nid = htons(get_network_id());
-    packet.header.pid = use_packet_id();
-    packet.header.res = 1;
-    packet.header.dest_addr = htons(err_dst_addr);
-    packet.header.src_addr = htons(get_device_id());
+
+    floc_build_header(&packet, TTL_START, FLOC_RESPONSE_TYPE, err_dst_addr, true);
 
     packet.payload.response.header.request_pid = err_pid;
     packet.payload.response.header.size = 0;
@@ -386,6 +395,7 @@ floc_broadcast_received(
     uint8_t pid = header->pid;
     uint16_t dest_addr = ntohs(header->dest_addr);
     uint16_t src_addr = ntohs(header->src_addr);
+    uint16_t last_hop_addr = ntohs(header->last_hop_addr);
 
     if (bloom_check_packet(pid, dest_addr, src_addr)) {
     #ifdef DEBUG_ON

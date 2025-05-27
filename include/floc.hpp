@@ -63,6 +63,7 @@ FlocHeader_t {
     uint8_t pid : FLOC_PID_SIZE;
     uint16_t dest_addr;
     uint16_t src_addr;
+    uint16_t last_hop_addr;
 };
 
 typedef struct
@@ -98,31 +99,33 @@ ResponseHeader_t {
 
 #define DATA_HEADER_SIZE        (sizeof(DataHeader_t))
 #define COMMAND_HEADER_SIZE     (sizeof(CommandHeader_t))
-#define RESPONSE_HEADER_SIZE    (sizeof(ResponseHeader_t))
 #define ACK_HEADER_SIZE         (sizeof(AckHeader_t))
+#define RESPONSE_HEADER_SIZE    (sizeof(ResponseHeader_t))
 
-#define MAX_DATA_DATA_SIZE      (FLOC_MAX_SIZE - FLOC_HEADER_COMMON_SIZE - DATA_HEADER_SIZE)
-#define MAX_COMMAND_DATA_SIZE   (FLOC_MAX_SIZE - FLOC_HEADER_COMMON_SIZE - COMMAND_HEADER_SIZE)
-#define MAX_RESPONSE_DATA_SIZE  (FLOC_MAX_SIZE - FLOC_HEADER_COMMON_SIZE - RESPONSE_HEADER_SIZE)
+#define MAX_DATA_PAYLOAD_SIZE       (FLOC_MAX_SIZE - FLOC_HEADER_COMMON_SIZE - DATA_HEADER_SIZE)
+#define MAX_COMMAND_PAYLOAD_SIZE    (FLOC_MAX_SIZE - FLOC_HEADER_COMMON_SIZE - COMMAND_HEADER_SIZE)
+
 // Ack packets don't have a data field in this example, but you could define a MAX_ACK_DATA_SIZE if needed.
 #ifdef ACK_DATA // ACK_DATA
-#define MAX_ACK_DATA_SIZE       (FLOC_MAX_SIZE - FLOC_HEADER_COMMON_SIZE - ACK_HEADER_SIZE)
+#define MAX_ACK_PAYLOAD_SIZE        (FLOC_MAX_SIZE - FLOC_HEADER_COMMON_SIZE - ACK_HEADER_SIZE)
 #else
-#define MAX_ACK_DATA_SIZE       0
+#define MAX_ACK_PAYLOAD_SIZE        0
 #endif //ACK_DATA
+
+#define MAX_RESPONSE_PAYLOAD_SIZE   (FLOC_MAX_SIZE - FLOC_HEADER_COMMON_SIZE - RESPONSE_HEADER_SIZE)
 
 
 // --- Complete FLOC Packet Structures ---
 typedef struct
 DataPacket_t {
     DataHeader_t header;
-    uint8_t payload[MAX_DATA_DATA_SIZE];
+    uint8_t payload[MAX_DATA_PAYLOAD_SIZE];
 };
 
 typedef struct
 CommandPacket_t {
     CommandHeader_t header;
-    uint8_t payload[MAX_COMMAND_DATA_SIZE];  // Statically allocated, maximum size
+    uint8_t payload[MAX_COMMAND_PAYLOAD_SIZE];  // Statically allocated, maximum size
 };
 
 typedef struct
@@ -130,14 +133,14 @@ AckPacket_t {
     AckHeader_t header;
     // If you add data to acks
 #ifdef ACK_DATA // ACK_DATA
-    uint8_t payload[MAX_ACK_DATA_SIZE];
+    uint8_t payload[MAX_ACK_PAYLOAD_SIZE];
 #endif // ACK_DATA
 };
 
 typedef struct
 ResponsePacket_t {
     ResponseHeader_t header;
-    uint8_t payload[MAX_RESPONSE_DATA_SIZE]; // Statically allocated, maximum size
+    uint8_t payload[MAX_RESPONSE_PAYLOAD_SIZE]; // Statically allocated, maximum size
 };
 
 typedef union
@@ -200,20 +203,22 @@ SerialFlocPacket_t {
 #define FLOC_PACKET_MAX_SIZE                (sizeof(FlocPacket_t))
 #define DATA_PACKET_MAX_SIZE                (FLOC_HEADER_COMMON_SIZE + DATA_HEADER_SIZE + MAX_DATA_DATA_SIZE)
 #define COMMAND_PACKET_MAX_SIZE             (FLOC_HEADER_COMMON_SIZE + COMMAND_HEADER_SIZE + MAX_COMMAND_DATA_SIZE)
-#define RESPONSE_PACKET_MAX_SIZE            (FLOC_HEADER_COMMON_SIZE + RESPONSE_HEADER_SIZE + MAX_RESPONSE_DATA_SIZE)
 #define ACK_PACKET_MAX_SIZE                 (FLOC_HEADER_COMMON_SIZE + ACK_HEADER_SIZE + MAX_ACK_DATA_SIZE)
+#define RESPONSE_PACKET_MAX_SIZE            (FLOC_HEADER_COMMON_SIZE + RESPONSE_HEADER_SIZE + MAX_RESPONSE_DATA_SIZE)
 
 #define SERIAL_FLOC_MAX_SIZE                (SERIAL_FLOC_PRE_SIZE + SERIAL_FLOC_HEADER_SIZE + FLOC_PACKET_MAX_SIZE) // Maximum size for a serial floc packet.
 
 // Actuals (with packet)
 #define DATA_PACKET_ACTUAL_SIZE(pkt)        (FLOC_HEADER_COMMON_SIZE + DATA_HEADER_SIZE + (pkt)->payload.data.header.size)
 #define COMMAND_PACKET_ACTUAL_SIZE(pkt)     (FLOC_HEADER_COMMON_SIZE + COMMAND_HEADER_SIZE + (pkt)->payload.command.header.size)
-#define RESPONSE_PACKET_ACTUAL_SIZE(pkt)    (FLOC_HEADER_COMMON_SIZE + RESPONSE_HEADER_SIZE + (pkt)->payload.response.header.size)
+
 #ifdef ACK_DATA // ACK_DATA
 #define ACK_PACKET_ACTUAL_SIZE(pkt)         (FLOC_HEADER_COMMON_SIZE + ACK_HEADER_SIZE + (pkt)->payload.ack.header.size)
 #else
 #define ACK_PACKET_ACTUAL_SIZE(pkt)         (FLOC_HEADER_COMMON_SIZE + ACK_HEADER_SIZE)
 #endif // ACK_DATA
+
+#define RESPONSE_PACKET_ACTUAL_SIZE(pkt)    (FLOC_HEADER_COMMON_SIZE + RESPONSE_HEADER_SIZE + (pkt)->payload.response.header.size)
 
 #define SERIAL_FLOC_ACTUAL_SIZE(pkt)        (SERIAL_FLOC_HEADER_SIZE + (pkt)->header.size)
 
@@ -221,6 +226,7 @@ SerialFlocPacket_t {
 struct
 DeviceAction_t {
     uint8_t modemRespType;
+    uint16_t lastHopAddr;
     uint16_t srcAddr;
     uint8_t flocType;
     uint8_t commandType;
@@ -262,11 +268,6 @@ set_device_id(
     uint16_t new_device_id
 );
 
-uint8_t
-use_packet_id(
-    void
-);
-
 void
 floc_status_query(
     uint8_t dest_addr
@@ -290,27 +291,6 @@ floc_error_send(
     uint8_t ttl,
     uint8_t err_pid,
     uint8_t err_dst_addr
-);
-
-void
-parse_floc_command_packet(
-    FlocHeader_t* floc_header,
-    CommandPacket_t* pkt,
-    uint8_t size
-);
-
-void
-parse_floc_acknowledgement_packet(
-    FlocHeader_t* floc_header,
-    AckPacket_t* pkt,
-    uint8_t size
-);
-
-void
-parse_floc_response_packet(
-    FlocHeader_t* floc_header,
-    ResponsePacket_t* pkt,
-    uint8_t size
 );
 
 void
