@@ -294,7 +294,7 @@ parse_floc_acknowledgement_packet(
 
     uint8_t ack_pid = ackHeader->ack_pid;
 
-    flocBuffer.add_ackID(ack_pid);
+    flocBuffer.addAckID(ack_pid);
 
 #ifdef ACK_DATA // ACK_DATA
     uint8_t dataSize = ackHeader->size;

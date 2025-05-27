@@ -8,7 +8,6 @@
 
 struct ping_device {
     uint16_t devAdd;
-    uint8_t modAdd;
     uint8_t pingCount;
 };
 
@@ -21,62 +20,27 @@ FLOCBufferManager {
         );
 
         int
-        checkqueueStatus(
-            void
-        );
-
-        int
-        queuehandler(
+        checkQueueStatus(
             void
         );
 
         void
-        add_ackID(
+        addAckID(
             uint8_t ackID
         );
 
         void
-        add_pinglist(
+        addToPingList(
             uint8_t index,
             uint16_t devAdd
         );
 
+        int
+        queueHandler(
+            void
+        );
+
     private:
-
-        int
-        ping_handler(
-            void
-        );
-
-        void
-        retransmission_handler(
-            void
-        );
-
-        void
-        response_handler(
-            void
-        );
-
-        void
-        command_handler(
-            void
-        );
-
-        int
-        checkackID(
-            uint8_t ackID
-        );
-
-        bool
-        check_pinglist(
-            void
-        );
-
-        void
-        printall(
-            void
-        );
 
         void
         printRetransmissionBuffer(
@@ -102,11 +66,46 @@ FLOCBufferManager {
         printAckIDs(
             void
         );
+
+        void
+        printall(
+            void
+        );
+
+        bool
+        checkPingList(
+            void
+        );
+
+        bool
+        checkAckID(
+            uint8_t ackID
+        );
+
+        bool
+        pingHandler(
+            void
+        );
+
+        void
+        retransmissionHandler(
+            void
+        );
+
+        void
+        responseHandler(
+            void
+        );
+
+        void
+        commandHandler(
+            void
+        );
         
         const int maxTransmissions = 5;
         const int maxSendBuffer    = 5;
 
-        ping_device pingDevice[3];;
+        ping_device pingDevice[3];
 
         std::deque<FlocPacket_t> commandBuffer;
         std::deque<FlocPacket_t> responseBuffer;
