@@ -66,9 +66,9 @@ FLOCBufferManager::addPacket(
     if (packet.header.dest_addr != get_device_id()) {
         if (retransmissionBuffer.size() > maxSendBuffer){
 
-    #ifdef DEBUG_ON // DEBUG_ON
-       Serial.printf("retransmission buffer to big \r\n");
-    #endif // DEBUG_ON
+        #ifdef DEBUG_ON // DEBUG_ON
+            Serial.printf("Retransmission buffer to full! \r\n");
+        #endif // DEBUG_ON
 
             return;
         }
@@ -77,21 +77,16 @@ FLOCBufferManager::addPacket(
         Serial.printf("Adding packet to retransmission buffer\r\n");
         printBufferContents((uint8_t*) &newPacket, sizeof(newPacket));
     #endif // DEBUG_ON
-
         retransmissionBuffer.push_back(newPacket);
-    #ifdef DEBUG_ON // DEBUG_ON
-        Serial.printf("Packet added to retransmission buffer\r\n");
-        Serial.printf("Size of retransmission buffer: %i\r\n", retransmissionBuffer.size());
-    #endif // DEBUG_ON
 
     } else if(newPacket.header.type == FLOC_COMMAND_TYPE) {
         commandBuffer.push_back(newPacket);
 
     #ifdef DEBUG_ON // DEBUG_ON
-        Serial.printf("added to the command buffer\r\n");
+        Serial.printf("Added to the command buffer\r\n");
     #endif // DEBUG_ON
 
-    } else if (newPacket.header.type == FLOC_RESPONSE_TYPE) {
+    } else if (newPacket.header.type == FLOC_RESPONSE_TYPE || newPacket.header.type == FLOC_ACK_TYPE) {
         responseBuffer.push_back(newPacket);
 
     #ifdef DEBUG_ON // DEBUG_ON
@@ -100,7 +95,7 @@ FLOCBufferManager::addPacket(
 
     } else {
     #ifdef DEBUG_ON // DEBUG_ON
-        Serial.printf("Invalid packet type for command buffer\n");
+        Serial.printf("Invalid packet type for packet buffer\n");
     #endif // DEBUG_ON
 
     }
@@ -173,18 +168,11 @@ FLOCBufferManager::ping_handler(
     for (int i = 0; i < 3; i++) {
         ping_device& dev = pingDevice[i]; // Reference the real item
 
-        if (checkackID(dev.devAdd)) {
-            memset(&dev, 0, sizeof(dev));
-        #ifdef DEBUG_ON
-            Serial.printf("Ping ID %d found and removed\n", dev.devAdd);
-        #endif
-        
-            return 1; // No need to ping if ACK received
-        }
-
         if (dev.pingCount < maxTransmissions) {
             dev.pingCount++;
-            ping(dev.modAdd);
+            
+            uint8_t modem_id = modemIdFromDidNid(get_device_id(), get_network_id());
+            ping(modem_id);
         }
     }
 
@@ -203,27 +191,11 @@ FLOCBufferManager::check_pinglist(
 }
 
 // retransmit and remove from vector
-int
+void
 FLOCBufferManager::retransmission_handler(
     void
 ){
     FlocPacket_t packet = retransmissionBuffer.front();
-
-    uint16_t packet_id = packet.header.pid;
-
-    // if message is an ack, remove from buffer
-    if (checkackID(packet_id)) {
-    #ifdef DEBUG_ON // DEBUG_ON
-        Serial.printf("Ack ID %d found and removed\n", packet_id);
-    #endif // DEBUG_ON
-
-        retransmissionBuffer.pop_front(); // Remove from buffer
-        
-        return 1;
-    }
-
-    // send packet
-    // FIX THE SIZE ASPECT
 
     if (packet.header.ttl > 1){
         packet.header.ttl--;
@@ -248,40 +220,27 @@ FLOCBufferManager::retransmission_handler(
         }
 
         #ifdef DEBUG_ON // DEBUG_ON
-            Serial.printf("[FLOCBUFF] Retransmitting %i\r\n", packet_id);
+            Serial.printf("[FLOCBUFF] Retransmitting %i\r\n", packet.header.pid);
         #endif // DEBUG_ON
 
         broadcast((uint8_t*) &packet, packet_size);
     } 
 
     retransmissionBuffer.pop_front(); // Remove from buffer
-    return 0;
 }
 
-int
+void
 FLOCBufferManager::response_handler(
     void
 ){
     FlocPacket_t packet = responseBuffer.front();
 
-    uint16_t packet_id = packet.header.pid;
-
-    // if message is an ack, remove from buffer
-    if (checkackID(packet_id)) {
-    #ifdef DEBUG_ON // DEBUG_ON
-        Serial.printf("Ack ID %d found and removed\n", packet_id);
-    #endif // DEBUG_ON
-
-        responseBuffer.pop_front(); // Remove from buffer
-        return 1;
-    }
     // send packet
     broadcast((uint8_t*) &packet, RESPONSE_PACKET_ACTUAL_SIZE(&packet));
     responseBuffer.pop_front(); // Remove from buffer
-    return 0;
 }
 
-int
+void
 FLOCBufferManager::command_handler(
     void
 ){
@@ -289,16 +248,6 @@ FLOCBufferManager::command_handler(
     FlocPacket_t packet = commandBuffer.front();
 
     uint8_t packet_id = packet.header.pid;
-
-    // if message is an ack, remove from buffer
-    if (checkackID(packet_id)) {
-    #ifdef DEBUG_ON // DEBUG_ON
-        Serial.printf("Ack ID %d found and removed\n", packet_id);
-    #endif // DEBUG_ON
-
-        commandBuffer.pop_front(); // Remove from buffer
-        return 1;
-    }
 
     // Check if the packet ID exists in the map, if not initialize it
     if (transmissionCounts.find(packet_id) == transmissionCounts.end()) {
@@ -315,14 +264,13 @@ FLOCBufferManager::command_handler(
         transmissionCounts.erase(packet_id); // Remove from map
 
         floc_error_send(1, packet_id, packet.header.src_addr); // Send error packet
-        return 0;
+        return;
     }
 
     transmissionCounts[packet_id]++; // Increment transmission count for this packet ID
 
-    broadcast((uint8_t*) &packet, COMMAND_PACKET_ACTUAL_SIZE(&packet));
     // send packet
-    return 0;
+    broadcast((uint8_t*) &packet, COMMAND_PACKET_ACTUAL_SIZE(&packet));
 }
 
 // list of ackIDs
@@ -356,11 +304,9 @@ FLOCBufferManager::checkackID(
 void
 FLOCBufferManager::add_pinglist(
     uint8_t index,
-    uint16_t devAdd,
-    uint8_t modAdd
+    uint16_t devAdd
 ){
     pingDevice[index].devAdd = devAdd;
-    pingDevice[index].modAdd = modAdd;
     pingDevice[index].pingCount = 0;
 }
 

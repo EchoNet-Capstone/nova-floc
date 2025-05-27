@@ -408,16 +408,25 @@ floc_broadcast_received(
     Serial.printf("\tSRC: %d\r\n", src_addr);
     printBufferContents((uint8_t*) pkt, size);
 #endif // DEBUG_ON
+    
+    if (nid != get_network_id()){
+    #ifdef DEBUG_ON // DEBUG_ON
+        Serial.printf("Not on our network. Dropping...\r\n");
+    #endif // DEBUG_ON
+
+        return;
+    }
+
+    if (src_addr == get_device_id()){
+    #ifdef DEBUG_ON // DEBUG_ON
+        Serial.printf("Recv retrans from self. Dropping...\r\n");
+    #endif // DEBUG_ON
+
+        return;
+    }
 
     // Setup DeviceAction
     da.srcAddr = src_addr;
-
-      if (src_addr == get_device_id()){
-        #ifdef DEBUG_ON // DEBUG_ON
-            Serial.printf("Recv retrans from self, dropping\r\n");
-        #endif // DEBUG_ON
-        return;
-    }
 
     // Determine the type of the packet
     switch (type) {

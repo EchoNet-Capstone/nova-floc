@@ -38,8 +38,7 @@ FLOCBufferManager {
         void
         add_pinglist(
             uint8_t index,
-            uint16_t devAdd,
-            uint8_t modAdd
+            uint16_t devAdd
         );
 
     private:
@@ -49,17 +48,17 @@ FLOCBufferManager {
             void
         );
 
-        int
+        void
         retransmission_handler(
             void
         );
 
-        int
+        void
         response_handler(
             void
         );
 
-        int
+        void
         command_handler(
             void
         );
