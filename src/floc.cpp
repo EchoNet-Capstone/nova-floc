@@ -421,7 +421,7 @@ floc_broadcast_received(
     
     if (nid != get_network_id()){
     #ifdef DEBUG_ON // DEBUG_ON
-        Serial.printf("Not on our network. Dropping...\r\n");
+        Serial.printf("Not on our network. %i Dropping...\r\n", nid);
     #endif // DEBUG_ON
 
         return;

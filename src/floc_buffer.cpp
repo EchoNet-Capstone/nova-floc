@@ -367,6 +367,10 @@ FLOCBufferManager::retransmissionHandler(
 
         packet.header.last_hop_addr = get_device_id();
 
+        #ifdef DEBUG_ON // DEBUG_ON
+            printBufferContents((uint8_t*) &packet, sizeof(FlocPacket_t));
+        #endif // DEBUG_ON
+
         broadcast((uint8_t*) &packet, packet_size);
     } 
 

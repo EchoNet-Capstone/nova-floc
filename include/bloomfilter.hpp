@@ -36,3 +36,5 @@ H(
     uint32_t a,
     uint32_t b
 );
+
+void bloom_reset(void);
