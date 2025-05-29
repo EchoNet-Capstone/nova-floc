@@ -190,7 +190,7 @@ FLOCBufferManager::addPacket(
     memcpy(&(newPacket.payload), &(packet.payload), payload_max_size);
 
     // identify if the packet is a retransmission
-    if (packet.header.dest_addr != get_device_id()) {
+    if (ntohs(packet.header.dest_addr) != get_device_id()) {
         if (retransmissionBuffer.size() > maxSendBuffer){
 
         #ifdef DEBUG_ON // DEBUG_ON
@@ -365,10 +365,10 @@ FLOCBufferManager::retransmissionHandler(
             Serial.printf("[FLOCBUFF] Retransmitting %i\r\n", packet.header.pid);
         #endif // DEBUG_ON
 
-        packet.header.last_hop_addr = get_device_id();
+        packet.header.last_hop_addr = ntohs(get_device_id());
 
         #ifdef DEBUG_ON // DEBUG_ON
-            printBufferContents((uint8_t*) &packet, sizeof(FlocPacket_t));
+            printBufferContents((uint8_t*) &packet, packet_size);
         #endif // DEBUG_ON
 
         broadcast((uint8_t*) &packet, packet_size);
