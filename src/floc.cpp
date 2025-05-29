@@ -227,7 +227,9 @@ parse_floc_command_packet(
     uint8_t dataSize = header->size;
 
 #ifdef DEBUG_ON // DEBUG_ON
-    Serial.printf("\tCommandPacket\r\n\t\tType: %d\r\n\t\tSize: %d\r\n", commandType, dataSize);
+    Serial.printf("\tCommandPacket\r\n");
+    Serial.printf("\t\tType: %d\r\n", commandType);
+    Serial.printf("\t\tSize: %d\r\n", dataSize);
 #endif // DEBUG_ON
 
     // Validate data size
