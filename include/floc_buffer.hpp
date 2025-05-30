@@ -6,33 +6,22 @@
 
 #include "floc.hpp"
 
-struct ping_device {
-    uint16_t devAdd;
-    uint8_t pingCount;
-};
-
 class 
 FLOCBufferManager {
     public:
         void
-        addPacket(
+        handlePacket(
             const FlocPacket_t& packet
         );
 
-        int
+        bool
         checkQueueStatus(
             void
         );
 
-        void
-        addAckID(
-            uint8_t ackID
-        );
-
-        void
-        addToPingList(
-            uint8_t index,
-            uint16_t devAdd
+        void 
+        removePacketById(
+            uint8_t ackId
         );
 
         void
@@ -58,33 +47,14 @@ FLOCBufferManager {
         );
 
         void
-        printPingDevices(
-            void
-        );
-
-        void
-        printAckIDs(
-            void
-        );
-
-        void
         printall(
             void
         );
 
-        bool
-        checkPingList(
-            void
-        );
-
-        bool
-        checkAckID(
-            uint8_t ackID
-        );
-
-        bool
-        pingHandler(
-            void
+        void
+        addPacketToBuffer(
+            std::deque<FlocPacket_t>& queue_to_add,
+            const FlocPacket_t& packet
         );
 
         void
@@ -102,21 +72,14 @@ FLOCBufferManager {
             void
         );
         
-        const int maxTransmissions = 5;
-        const int maxSendBuffer    = 5;
-
-        ping_device pingDevice[3];
+        const uint8_t maxTransmissions = 5;
+        const uint8_t maxSendBuffer    = 5;
 
         std::deque<FlocPacket_t> commandBuffer;
         std::deque<FlocPacket_t> responseBuffer;
-
-        // this is going to be different
         std::deque<FlocPacket_t> retransmissionBuffer;
 
-        std::map<uint8_t, int> ackIDs;
-        std::map<uint8_t, int> transmissionCounts;
-        
-
+        std::map<uint8_t, uint8_t> transmissionCounts;
 };
 
 extern FLOCBufferManager flocBuffer;

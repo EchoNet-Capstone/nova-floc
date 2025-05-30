@@ -117,7 +117,7 @@ floc_acknowledgement_send(
 
     packet.payload.ack.header.ack_pid = ack_pid;
 
-    flocBuffer.addPacket(packet);
+    flocBuffer.handlePacket(packet);
     // broadcast(MODEM_SERIAL_CONNECTION, (char*)&packet, ACK_PACKET_ACTUAL_SIZE(&packet));
 }
 
@@ -138,7 +138,7 @@ floc_status_send(
     memcpy(packet.payload.response.payload, &node_addr, sizeof(node_addr));
     memcpy(packet.payload.response.payload + sizeof(node_addr), &supply_voltage, sizeof(supply_voltage));
 
-    flocBuffer.addPacket(packet);
+    flocBuffer.handlePacket(packet);
 
     // broadcast(MODEM_SERIAL_CONNECTION, (char*)(&packet), RESPONSE_PACKET_ACTUAL_SIZE(&packet));
 }
@@ -156,7 +156,7 @@ floc_error_send(
     packet.payload.response.header.request_pid = err_pid;
     packet.payload.response.header.size = 0;
 
-    flocBuffer.addPacket(packet);
+    flocBuffer.handlePacket(packet);
     //broadcast(MODEM_SERIAL_CONNECTION, (char*)(&packet), RESPONSE_PACKET_ACTUAL_SIZE(&packet));
 }
 
@@ -296,8 +296,6 @@ parse_floc_acknowledgement_packet(
 
     uint8_t ack_pid = ackHeader->ack_pid;
 
-    flocBuffer.addAckID(ack_pid);
-
 #ifdef ACK_DATA // ACK_DATA
     uint8_t dataSize = ackHeader->size;
 
@@ -399,6 +397,22 @@ floc_broadcast_received(
     uint16_t src_addr = ntohs(header->src_addr);
     uint16_t last_hop_addr = ntohs(header->last_hop_addr);
 
+#ifdef DEBUG_ON // DEBUG_ON
+    Serial.printf("FLOC Packet Header\r\n");
+    Serial.printf("\tTTL:%d\r\n", ttl);
+    Serial.printf("\tType: %d\r\n", type);
+    Serial.printf("\tNID: %d\r\n", nid);
+    Serial.printf("\tPID: %d\r\n", pid);
+    Serial.printf("\tDST: %d\r\n", dest_addr);
+    Serial.printf("\tSRC: %d\r\n", src_addr);
+    Serial.printf("\tLH: %d\r\n", last_hop_addr);
+    printBufferContents((uint8_t*) pkt, size);
+#endif // DEBUG_ON
+    
+    // Setup DeviceAction
+    da.srcAddr = src_addr;
+    da.lastHopAddr = last_hop_addr;
+
     if (bloom_check_packet(pid, dest_addr, src_addr)) {
     #ifdef DEBUG_ON
         Serial.printf("Duplicate packet (raw hash), dropping.\n");
@@ -410,17 +424,6 @@ floc_broadcast_received(
     maybe_reset_bloom_filter();
     bloom_add_packet(pid, dest_addr, src_addr);
 
-#ifdef DEBUG_ON // DEBUG_ON
-    Serial.printf("FLOC Packet Header\r\n");
-    Serial.printf("\tTTL:%d\r\n", ttl);
-    Serial.printf("\tType: %d\r\n", type);
-    Serial.printf("\tNID: %d\r\n", nid);
-    Serial.printf("\tPID: %d\r\n", pid);
-    Serial.printf("\tDST: %d\r\n", dest_addr);
-    Serial.printf("\tSRC: %d\r\n", src_addr);
-    printBufferContents((uint8_t*) pkt, size);
-#endif // DEBUG_ON
-    
     if (nid != get_network_id()){
     #ifdef DEBUG_ON // DEBUG_ON
         Serial.printf("Not on our network. %i Dropping...\r\n", nid);
@@ -436,9 +439,6 @@ floc_broadcast_received(
 
         return;
     }
-
-    // Setup DeviceAction
-    da.srcAddr = src_addr;
 
     // Determine the type of the packet
     switch (type) {
@@ -476,9 +476,8 @@ floc_broadcast_received(
 
     if (da.flocType >= FLOC_DATA_TYPE && da.flocType <= FLOC_RESPONSE_TYPE) // Is a valid packet
     {
-        flocBuffer.addPacket(*pkt);
+        flocBuffer.handlePacket(*pkt);
     }
-
 }
 
 void

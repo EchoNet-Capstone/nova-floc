@@ -25,6 +25,7 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <algorithm>
 #include <queue>
 #include <map>
 
@@ -109,47 +110,6 @@ FLOCBufferManager::printCommandBuffer(
 }
 
 void 
-FLOCBufferManager::printPingDevices(
-    void
-){
-    Serial.printf("Ping Devices:\r\n");
-    bool found = false;
-    for (int i = 0; i < 3; i++) {
-        if (pingDevice[i].devAdd != 0) {
-            Serial.printf("  [%d] Dev:%d Mod:%d\r\n", 
-                i, pingDevice[i].devAdd, modemIdFromDidNid(pingDevice[i].devAdd, get_network_id()));
-            Serial.printf("      Count:%d\r\n", pingDevice[i].pingCount);
-            found = true;
-        }
-    }
-    if (!found) {
-        Serial.printf("  (none)\r\n");
-    }
-}
-
-void 
-FLOCBufferManager::printAckIDs(
-    void
-){
-    Serial.printf("ACK IDs (%d):\r\n", ackIDs.size());
-    if (ackIDs.empty()) {
-        Serial.printf("  (none)\r\n");
-        return;
-    }
-    
-    int count = 0;
-    for (const auto& pair : ackIDs) {
-        if (count < 5) {
-            Serial.printf("  ID:%d\r\n", pair.first);
-        }
-        count++;
-    }
-    if (ackIDs.size() > 5) {
-        Serial.printf("  ...+%d more\r\n", ackIDs.size() - 5);
-    }
-}
-
-void 
 FLOCBufferManager::printall(
     void
 ){
@@ -157,19 +117,23 @@ FLOCBufferManager::printall(
     printRetransmissionBuffer();
     printResponseBuffer();
     printCommandBuffer();
-    printPingDevices();
-    printAckIDs();
     Serial.printf("==================\r\n");
 }
 
 void
-FLOCBufferManager::addPacket(
+FLOCBufferManager::addPacketToBuffer(
+    std::deque<FlocPacket_t>& buffer,
     const FlocPacket_t& packet
 ){
-    FlocPacket_t newPacket;
-    memset(&newPacket, 0, sizeof(newPacket));
+    if (buffer.size() > maxSendBuffer){
 
-    memcpy(&(newPacket.header), &(packet.header), sizeof(FlocHeader_t));
+    #ifdef DEBUG_ON // DEBUG_ON
+        Serial.printf("Buffer full! Not adding...\r\n");
+    #endif // DEBUG_ON
+
+        /* Do nothing */
+        return;
+    }
 
     size_t payload_max_size;
     switch(packet.header.type){
@@ -187,50 +151,78 @@ FLOCBufferManager::addPacket(
             break;
     }
 
+    FlocPacket_t newPacket;
+    memset(&newPacket, 0, sizeof(newPacket));
+
+    memcpy(&(newPacket.header), &(packet.header), sizeof(FlocHeader_t));
     memcpy(&(newPacket.payload), &(packet.payload), payload_max_size);
 
+#ifdef DEBUG_ON // DEBUG_ON
+    printBufferContents((uint8_t*) &newPacket, sizeof(newPacket));
+#endif // DEBUG_ON
+
+    buffer.push_back(newPacket);
+}
+
+void
+FLOCBufferManager::handlePacket(
+    const FlocPacket_t& packet
+){
     // identify if the packet is a retransmission
     if (ntohs(packet.header.dest_addr) != get_device_id()) {
-        if (retransmissionBuffer.size() > maxSendBuffer){
+
+        addPacketToBuffer(retransmissionBuffer, packet);
+
+    #ifdef DEBUG_ON // DEBUG_ON
+        Serial.printf("Added to the retransmission buffer\r\n");
+    #endif // DEBUG_ON
+
+        return;
+    } 
+
+    if (ntohs(packet.header.src_addr) != get_device_id() 
+        || ntohs(packet.header.dest_addr) == get_device_id()) {
+    #ifdef DEBUG_ON // DEBUG_ON
+        Serial.printf("Not a packet we're sending or retransmitting. "); 
+        Serial.printf("Handled in device_actions...\r\n");
+    #endif // DEBUG_ON
+        
+        /* Do nothing */
+        return;
+    }
+
+    switch(packet.header.type) {
+        case FLOC_COMMAND_TYPE:
+
+            addPacketToBuffer(commandBuffer, packet);
 
         #ifdef DEBUG_ON // DEBUG_ON
-            Serial.printf("Retransmission buffer to full! \r\n");
+            Serial.printf("Added to the command buffer\r\n");
+        #endif // DEBUG_ON
+            break;
+
+        case FLOC_RESPONSE_TYPE:
+        case FLOC_DATA_TYPE:
+        case FLOC_ACK_TYPE:
+
+            addPacketToBuffer(responseBuffer, packet);
+
+        #ifdef DEBUG_ON // DEBUG_ON
+            Serial.printf("Added to the response buffer\r\n");
         #endif // DEBUG_ON
 
-            return;
-        }
+            break;
+        default:
+        #ifdef DEBUG_ON // DEBUG_ON
+            Serial.printf("Invalid packet type for packet buffer\r\n");
+        #endif // DEBUG_ON
 
-    #ifdef DEBUG_ON // DEBUG_ON
-        Serial.printf("Adding packet to retransmission buffer\r\n");
-        printBufferContents((uint8_t*) &newPacket, sizeof(newPacket));
-    #endif // DEBUG_ON
-    
-        retransmissionBuffer.push_back(newPacket);
-
-    } else if(newPacket.header.type == FLOC_COMMAND_TYPE) {
-        commandBuffer.push_back(newPacket);
-
-    #ifdef DEBUG_ON // DEBUG_ON
-        Serial.printf("Added to the command buffer\r\n");
-    #endif // DEBUG_ON
-
-    } else if (newPacket.header.type == FLOC_RESPONSE_TYPE || newPacket.header.type == FLOC_ACK_TYPE) {
-        responseBuffer.push_back(newPacket);
-
-    #ifdef DEBUG_ON // DEBUG_ON
-        Serial.printf("Added to the response buffer\r\n");
-    #endif // DEBUG_ON
-
-    } else {
-    #ifdef DEBUG_ON // DEBUG_ON
-        Serial.printf("Invalid packet type for packet buffer\r\n");
-    #endif // DEBUG_ON
-
+            break;
     }
 }
 
 // check if buffer is empty
-int
+bool
 FLOCBufferManager::checkQueueStatus(
     void
 ){
@@ -239,97 +231,36 @@ FLOCBufferManager::checkQueueStatus(
         Serial.printf("Retransmission buffer is not empty\r\n");
     #endif // DEBUG_ON
 
-        return 1;
+        return true;
     } else if (!responseBuffer.empty()) {
     #ifdef DEBUG_ON // DEBUG_ON
         Serial.printf("Response buffer is not empty\r\n");
     #endif // DEBUG_ON
 
-        return 2;
+        return true;
     } else if (!commandBuffer.empty()) {
     #ifdef DEBUG_ON // DEBUG_ON
         Serial.printf("Command buffer is not empty\r\n");
     #endif // DEBUG_ON
 
-        return 3;
-    } else {
-        return 0;
-    }
-}
-
-void
-FLOCBufferManager::addToPingList(
-    uint8_t index,
-    uint16_t devAdd
-){
-    pingDevice[index].devAdd = devAdd;
-    pingDevice[index].pingCount = 0;
-}
-
-bool
-FLOCBufferManager::checkPingList(
-    void
-){
-    if (pingDevice[0].devAdd != 0) {
         return true;
     }
 
     return false;
 }
 
-// list of ackIDs
-void
-FLOCBufferManager::addAckID(
-    uint8_t ackID
+void 
+FLOCBufferManager::removePacketById(
+    uint8_t ackId
 ){
-    ackIDs[ackID] = 1;
-#ifdef DEBUG_ON // DEBUG_ON
-    Serial.printf("Ack ID %d added\r\n", ackID);
-#endif // DEBUG_ON
-
-}
-
-bool
-FLOCBufferManager::checkAckID(
-    uint8_t ackID
-){
-    if (ackIDs.find(ackID) != ackIDs.end()) {
-        ackIDs.erase(ackID);
-    #ifdef DEBUG_ON // DEBUG_ON
-        Serial.printf("Ack ID %d found and removed\r\n", ackID);
-    #endif // DEBUG_ON
-
-        return true;
+    auto it = std::find_if(commandBuffer.begin(), commandBuffer.end(),
+        [ackId](const FlocPacket_t& packet) {
+            return packet.header.pid == ackId;
+        });
+    
+    if (it != commandBuffer.end()) {
+        commandBuffer.erase(it);
     }
-
-    return false;
-}
-
-// this will send out all the pings
-bool
-FLOCBufferManager::pingHandler(
-    void
-){
-    static int curr_device = 0;
-
-    if (curr_device >= 3){
-        curr_device = 0;
-
-        return false;
-    }
-
-    ping_device& dev = pingDevice[curr_device]; // Reference the real item
-
-    if (dev.pingCount < maxTransmissions) {
-        dev.pingCount++;
-        
-        uint8_t modem_id = modemIdFromDidNid(get_device_id(), get_network_id());
-        ping(modem_id);
-    } else { // Maximum transmissions reached
-        curr_device++;
-    }
-
-    return true;
 }
 
 // retransmit and remove from queue
@@ -426,15 +357,6 @@ void
 FLOCBufferManager::queueHandler(
     void
 ){
-    if (checkPingList()) { // ranging period started
-        if (pingHandler()) {
-            return; // Continue with ranging period, don't send other packets
-        } else {
-            memset(&pingDevice, 0, sizeof(pingDevice)); // ranging period done, clear out ping device array
-            // continue with other packets
-        }
-    }
-
     #ifdef DEBUG_ON // DEBUG_ON
         flocBuffer.printall();
     #endif // DEBUG_ON
